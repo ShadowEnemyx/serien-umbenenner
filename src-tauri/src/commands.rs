@@ -218,6 +218,12 @@ fn is_video(path: &Path) -> bool {
         })
 }
 
+fn is_hidden_path(path: &Path) -> bool {
+    path.file_name()
+        .and_then(OsStr::to_str)
+        .is_some_and(|name| name.starts_with('.'))
+}
+
 fn filename_is_safe(name: &str) -> bool {
     !name.trim().is_empty()
         && Path::new(name).file_name() == Some(OsStr::new(name))
@@ -270,6 +276,7 @@ pub fn scan_folder(
         .min_depth(1)
         .max_depth(max_depth)
         .into_iter()
+        .filter_entry(|entry| entry.depth() == 0 || !is_hidden_path(entry.path()))
         .filter_map(Result::ok)
         .filter(|entry| entry.file_type().is_file() && is_video(entry.path()))
         .filter_map(|entry| {
@@ -828,6 +835,13 @@ mod tests {
         assert!(filename_is_safe("Danny Phantom S01E15.mkv"));
         assert!(!filename_is_safe("folder/episode.mkv"));
         assert!(!filename_is_safe("episode?.mkv"));
+    }
+
+    #[test]
+    fn recognises_dot_prefixed_files_as_hidden() {
+        assert!(is_hidden_path(Path::new("._tvkids.danny.phantom.s01e01.mkv")));
+        assert!(is_hidden_path(Path::new(".metadata")));
+        assert!(!is_hidden_path(Path::new("tvkids.danny.phantom.s01e01.mkv")));
     }
 
     #[test]
