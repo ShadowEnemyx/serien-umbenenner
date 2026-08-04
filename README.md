@@ -2,6 +2,10 @@
 
 Eine plattformübergreifende Desktop-App zum sicheren, lokalen Umbenennen vieler Video-Dateien. Sie zeigt jeden neuen Namen vorab, schlägt mögliche Präfixe wie `tvkids` oder `tvarchiv` vor und ändert nie etwas ohne Bestätigung.
 
+## Downloads
+
+Fertige Installationsdateien stehen bei jeder veröffentlichten Version unter [Releases](https://github.com/ShadowEnemyx/serien-umbenenner/releases) bereit: `.dmg` für macOS, `.exe` für Windows sowie `.AppImage` und `.deb` für Linux.
+
 ## Funktionen
 
 - Scannt einen gewählten Ordner, optional samt Unterordnern

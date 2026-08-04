@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     ffi::OsStr,
     fs,
     path::{Path, PathBuf},
@@ -344,7 +344,7 @@ fn prepare_renames(
         })
         .filter_map(Result::ok)
         .collect::<HashSet<_>>();
-    let mut targets = HashSet::new();
+    let mut targets: HashMap<String, PathBuf> = HashMap::new();
 
     items
         .iter()
@@ -378,10 +378,21 @@ fn prepare_renames(
                 .unwrap_or(Path::new(""))
                 .join(&item.target_name);
             let target_key = normalised_path_key(&target);
-            if !targets.insert(target_key.clone()) {
+            if let Some(first_source) = targets.insert(target_key.clone(), source.clone()) {
+                let first_name = first_source
+                    .file_name()
+                    .and_then(OsStr::to_str)
+                    .unwrap_or("unbekannte Datei");
+                let source_name = source
+                    .file_name()
+                    .and_then(OsStr::to_str)
+                    .unwrap_or("unbekannte Datei");
                 return Err(RenameFailure {
                     source_path: item.source_path.clone(),
-                    message: "Mehrere ausgewählte Dateien hätten denselben neuen Namen.".into(),
+                    message: format!(
+                        "Mehrere ausgewählte Dateien hätten denselben neuen Namen „{}“: „{}“ und „{}“.",
+                        item.target_name, first_name, source_name
+                    ),
                 });
             }
             if target.exists() && !sources.contains(&target_key) {
@@ -823,5 +834,43 @@ mod tests {
     fn creates_a_numbered_filename_without_losing_the_extension() {
         assert_eq!(numbered_filename("Sons of Anarchy S01E01.mkv", 2), "Sons of Anarchy S01E01 (2).mkv");
         assert_eq!(numbered_filename("Episode", 3), "Episode (3)");
+    }
+
+    #[test]
+    fn names_both_files_when_selected_targets_collide() {
+        let directory =
+            std::env::temp_dir().join(format!("serien-umbenenner-test-{}", Uuid::new_v4()));
+        fs::create_dir_all(&directory).expect("test directory");
+        let first = directory.join("tvkids.danny.phantom.s01e01.720p.mkv");
+        let second = directory.join("tvkids.danny.phantom.s01e01.1080p.mkv");
+        fs::write(&first, "first").expect("first fixture");
+        fs::write(&second, "second").expect("second fixture");
+        let state = AppState::default();
+        state
+            .selected_roots
+            .lock()
+            .expect("roots lock")
+            .push(directory.canonicalize().expect("canonical test directory"));
+
+        let results = prepare_renames(
+            &state,
+            &[
+                RenameItem {
+                    source_path: first.to_string_lossy().to_string(),
+                    target_name: "Danny Phantom S01E01.mkv".into(),
+                },
+                RenameItem {
+                    source_path: second.to_string_lossy().to_string(),
+                    target_name: "Danny Phantom S01E01.mkv".into(),
+                },
+            ],
+        );
+        let failure = match results.into_iter().nth(1).expect("second result") {
+            Err(failure) => failure,
+            Ok(_) => panic!("second rename should have collided"),
+        };
+        assert!(failure.message.contains("720p.mkv"), "{}", failure.message);
+        assert!(failure.message.contains("1080p.mkv"), "{}", failure.message);
+        fs::remove_dir_all(directory).expect("remove test directory");
     }
 }
