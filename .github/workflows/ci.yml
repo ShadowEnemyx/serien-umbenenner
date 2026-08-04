@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
+      - run: npm install
       - run: npm run test
       - run: npm run build
 
@@ -58,7 +58,7 @@ jobs:
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
-      - run: npm ci
+      - run: npm install
       - run: npm run tauri build -- --bundles ${{ matrix.bundles }} ${{ matrix.tauri_target }}
       - uses: actions/upload-artifact@v4
         with:
