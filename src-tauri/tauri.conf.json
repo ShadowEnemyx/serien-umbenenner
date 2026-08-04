@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Serien-Umbenenner",
+  "version": "0.1.0",
+  "identifier": "io.github.serien-umbenenner",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Serien-Umbenenner",
+        "width": 1180,
+        "height": 800,
+        "minWidth": 760,
+        "minHeight": 580,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' https://api.themoviedb.org; img-src 'self' data: https://image.tmdb.org; style-src 'self' 'unsafe-inline';"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "category": "Utility",
+    "shortDescription": "Batch rename video files safely",
+    "longDescription": "A local, preview-first batch renamer for video files."
+  }
+}
