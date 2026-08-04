@@ -62,6 +62,7 @@ const copy = {
     noPrefix: "—",
     conflicts: "Namenskonflikt lösen",
     conflictExplanation: "Der gewünschte Name kann nicht verwendet werden. Gib einen anderen Namen mit Dateiendung ein oder überspringe die Datei.",
+    conflictApplyAllHint: "Erstellt für alle Konflikte eindeutige Namen wie „… (2).mkv“. Danach kannst du die Vorschau weiter anpassen.",
     useName: "Namen verwenden",
     skip: "Überspringen",
     cancel: "Abbrechen",
@@ -114,6 +115,7 @@ const copy = {
     noPrefix: "—",
     conflicts: "Resolve name conflict",
     conflictExplanation: "The requested name cannot be used. Enter a different file name including extension, or skip the file.",
+    conflictApplyAllHint: "Creates unique names such as “… (2).mkv” for every conflict. You can still edit the preview afterwards.",
     useName: "Use name",
     skip: "Skip",
     cancel: "Cancel",
@@ -312,6 +314,29 @@ export default function App() {
     setConflictName(nextProposal?.targetName ?? "");
   };
 
+  const resolveAllConflicts = async () => {
+    if (conflicts.length === 0) return;
+    setBusy(true);
+    setError("");
+    try {
+      const resolved = await invoke<{ sourcePath: string; targetName: string }[]>("make_conflict_names_unique", {
+        items: itemsForRename(),
+        conflictSourcePaths: conflicts.map((conflict) => conflict.sourcePath),
+      });
+      const targetBySource = new Map(resolved.map((item) => [item.sourcePath, item.targetName]));
+      setProposals((current) => current.map((proposal) => {
+        const targetName = targetBySource.get(proposal.sourcePath);
+        return targetName ? { ...proposal, targetName } : proposal;
+      }));
+      setConflicts([]);
+      setMessage(t.conflictApplyAllHint);
+    } catch (caught) {
+      setError(String(caught));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const undo = async () => {
     setBusy(true);
     setError("");
@@ -497,6 +522,7 @@ export default function App() {
             <div className="modal-actions">
               <button className="text-button" onClick={() => setConflicts([])}>{t.cancel}</button>
               <button className="secondary" onClick={() => resolveConflict("skip")}>{t.skip}</button>
+              <button className="secondary" onClick={() => void resolveAllConflicts()}>{t.applyAll}</button>
               <button className="primary" onClick={() => resolveConflict("rename")}>{t.useName}</button>
             </div>
           </section>

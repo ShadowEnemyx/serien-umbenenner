@@ -401,6 +401,67 @@ fn prepare_renames(
         .collect()
 }
 
+fn numbered_filename(name: &str, number: usize) -> String {
+    let path = Path::new(name);
+    let stem = path.file_stem().and_then(OsStr::to_str).unwrap_or(name);
+    match path.extension().and_then(OsStr::to_str) {
+        Some(extension) if !extension.is_empty() => format!("{stem} ({number}).{extension}"),
+        _ => format!("{stem} ({number})"),
+    }
+}
+
+/// Gives every selected conflict a safe, distinct fallback name. Existing files are never reused.
+#[tauri::command]
+pub fn make_conflict_names_unique(
+    items: Vec<RenameItem>,
+    conflict_source_paths: Vec<String>,
+    state: State<'_, AppState>,
+) -> Result<Vec<RenameItem>, String> {
+    let conflict_sources = conflict_source_paths.into_iter().collect::<HashSet<_>>();
+    let mut reserved_targets = HashSet::new();
+
+    for item in &items {
+        if conflict_sources.contains(&item.source_path) {
+            continue;
+        }
+        let source = PathBuf::from(&item.source_path)
+            .canonicalize()
+            .map_err(|error| format!("Quelldatei ist nicht verfügbar: {error}"))?;
+        reserved_targets.insert(normalised_path_key(
+            &source.parent().unwrap_or(Path::new("")).join(&item.target_name),
+        ));
+    }
+
+    items
+        .into_iter()
+        .map(|mut item| {
+            if !conflict_sources.contains(&item.source_path) {
+                return Ok(item);
+            }
+            if !filename_is_safe(&item.target_name) {
+                return Err("Ungültige Dateinamen müssen einzeln korrigiert werden.".to_string());
+            }
+
+            let source = PathBuf::from(&item.source_path)
+                .canonicalize()
+                .map_err(|error| format!("Quelldatei ist nicht verfügbar: {error}"))?;
+            under_selected_root(&state, &source)?;
+            let parent = source.parent().unwrap_or(Path::new(""));
+
+            for number in 2.. {
+                let candidate = numbered_filename(&item.target_name, number);
+                let target = parent.join(&candidate);
+                let target_key = normalised_path_key(&target);
+                if !target.exists() && reserved_targets.insert(target_key) {
+                    item.target_name = candidate;
+                    return Ok(item);
+                }
+            }
+            unreachable!("the counter must eventually yield a free file name")
+        })
+        .collect()
+}
+
 #[tauri::command]
 pub fn validate_rename_batch(
     items: Vec<RenameItem>,
@@ -756,5 +817,11 @@ mod tests {
         assert!(filename_is_safe("Danny Phantom S01E15.mkv"));
         assert!(!filename_is_safe("folder/episode.mkv"));
         assert!(!filename_is_safe("episode?.mkv"));
+    }
+
+    #[test]
+    fn creates_a_numbered_filename_without_losing_the_extension() {
+        assert_eq!(numbered_filename("Sons of Anarchy S01E01.mkv", 2), "Sons of Anarchy S01E01 (2).mkv");
+        assert_eq!(numbered_filename("Episode", 3), "Episode (3)");
     }
 }

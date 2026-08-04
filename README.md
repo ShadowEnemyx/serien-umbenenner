@@ -10,7 +10,7 @@ Eine plattformübergreifende Desktop-App zum sicheren, lokalen Umbenennen vieler
 - Speichert bestätigte Regeln lokal und wendet nur bestätigte Entfernen-Regeln an
 - Formatiert Namen wie `tvkids.danny.phantom.s01e15.mkv` zu `Danny Phantom S01E15.mkv`
 - Verarbeitet auch Bindestriche wie `tvr-soa-s01e01-720p.mkv` und kann technische Zusätze wie `720p` oder `WEB-DL` entfernen
-- Zeigt eine editierbare Vorschau, schützt vor Überschreiben und behandelt Konflikte einzeln
+- Zeigt eine editierbare Vorschau, schützt vor Überschreiben und behandelt Konflikte einzeln oder für alle mit eindeutigen Nummern
 - Benennt über temporäre Namen um und kann die letzte Aktion rückgängig machen
 - Titel-Abkürzungen lassen sich ohne Online-Dienst einmalig zuordnen, etwa `soa` → `Sons of Anarchy`; die App speichert und nutzt sie für alle passenden Folgen
 - Optional: TMDb-Titelsuche mit eigenem API-Schlüssel aus dem System-Schlüsselspeicher, um solche Zuordnungen bequem zu finden
