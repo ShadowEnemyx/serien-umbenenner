@@ -1,6 +1,6 @@
 [package]
 name = "serien-umbenenner"
-version = "0.1.5"
+version = "0.1.6"
 description = "A safe local batch renamer for video files"
 authors = ["Serien-Umbenenner contributors"]
 edition = "2021"
@@ -16,6 +16,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
+tauri-plugin-process = "2"
+tauri-plugin-updater = "2"
 urlencoding = "2"
 uuid = { version = "1", features = ["v4"] }
 walkdir = "2"

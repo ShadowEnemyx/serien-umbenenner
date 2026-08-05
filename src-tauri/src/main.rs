@@ -9,7 +9,14 @@ use commands::{
 };
 
 fn main() {
+    #[cfg(target_os = "macos")]
+    let updater = tauri_plugin_updater::Builder::new().target("darwin-universal");
+    #[cfg(not(target_os = "macos"))]
+    let updater = tauri_plugin_updater::Builder::new();
+
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
+        .plugin(updater.build())
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .setup(|app| {

@@ -1,6 +1,8 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { relaunch } from "@tauri-apps/plugin-process";
+import { check, type Update } from "@tauri-apps/plugin-updater";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { aliasKeyForStem, createProposals, findPrefixCandidates, normalisePrefix, titleForLookup } from "./lib/rename";
 import type {
   BatchRecord,
@@ -70,6 +72,15 @@ const copy = {
     renamed: "Dateien erfolgreich umbenannt.",
     undone: "Letzte Aktion wurde rückgängig gemacht.",
     files: "Dateien",
+    checkForUpdates: "Updates prüfen",
+    checkingUpdates: "Prüfe auf Updates …",
+    updateAvailable: "Update {version} verfügbar",
+    updateAvailableHint: "Die neue Version wird sicher heruntergeladen und anschließend gestartet.",
+    downloadUpdate: "Update herunterladen",
+    downloadingUpdate: "Update wird heruntergeladen …",
+    updateReady: "Update installiert – die App startet neu …",
+    updateCheckFailed: "Update-Prüfung fehlgeschlagen. Bitte später erneut versuchen.",
+    updateDownloadFailed: "Das Update konnte nicht installiert werden. Bitte erneut versuchen.",
   },
   en: {
     appName: "Series Renamer",
@@ -123,6 +134,15 @@ const copy = {
     renamed: "Files renamed successfully.",
     undone: "The last operation was undone.",
     files: "files",
+    checkForUpdates: "Check for updates",
+    checkingUpdates: "Checking for updates …",
+    updateAvailable: "Update {version} available",
+    updateAvailableHint: "The new version will be downloaded securely and then launched.",
+    downloadUpdate: "Download update",
+    downloadingUpdate: "Downloading update …",
+    updateReady: "Update installed – restarting the app …",
+    updateCheckFailed: "Update check failed. Please try again later.",
+    updateDownloadFailed: "The update could not be installed. Please try again.",
   },
 } as const;
 
@@ -149,6 +169,12 @@ export default function App() {
   const [lookupResults, setLookupResults] = useState<TmdbCandidate[]>([]);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lastBatch, setLastBatch] = useState<BatchRecord | null>(null);
+  const [availableUpdate, setAvailableUpdate] = useState<Update | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "available" | "downloading" | "ready" | "error">("idle");
+  const [updateProgress, setUpdateProgress] = useState<{ downloaded: number; total?: number }>({ downloaded: 0 });
+  const [updateError, setUpdateError] = useState("");
+  const updateCheckInProgress = useRef(false);
+  const didCheckForUpdates = useRef(false);
 
   const t = copy[locale];
   const candidates = useMemo(() => findPrefixCandidates(files, rules), [files, rules]);
@@ -157,6 +183,9 @@ export default function App() {
     [proposals],
   );
   const currentConflict = conflicts[0];
+  const updateProgressPercent = updateProgress.total && updateProgress.total > 0
+    ? Math.min(100, Math.round((updateProgress.downloaded / updateProgress.total) * 100))
+    : null;
 
   const refreshPreview = useCallback((
     nextRules = rules,
@@ -187,6 +216,55 @@ export default function App() {
   useEffect(() => {
     void loadRules();
   }, [loadRules]);
+
+  const checkForUpdate = useCallback(async (showFailure: boolean) => {
+    if (updateCheckInProgress.current) return;
+    updateCheckInProgress.current = true;
+    setUpdateStatus("checking");
+    setUpdateError("");
+    try {
+      const update = await check({ timeout: 12_000 });
+      if (update) {
+        setAvailableUpdate(update);
+        setUpdateStatus("available");
+      } else {
+        setAvailableUpdate(null);
+        setUpdateStatus("idle");
+      }
+    } catch (caught) {
+      setUpdateStatus("error");
+      if (showFailure) setUpdateError(`${t.updateCheckFailed}\n${String(caught)}`);
+    } finally {
+      updateCheckInProgress.current = false;
+    }
+  }, [t.updateCheckFailed]);
+
+  useEffect(() => {
+    if (didCheckForUpdates.current) return;
+    didCheckForUpdates.current = true;
+    void checkForUpdate(false);
+  }, [checkForUpdate]);
+
+  const installUpdate = async () => {
+    if (!availableUpdate) return;
+    setUpdateStatus("downloading");
+    setUpdateError("");
+    setUpdateProgress({ downloaded: 0 });
+    try {
+      await availableUpdate.downloadAndInstall((event) => {
+        if (event.event === "Started") {
+          setUpdateProgress({ downloaded: 0, total: event.data.contentLength });
+        } else if (event.event === "Progress") {
+          setUpdateProgress((progress) => ({ ...progress, downloaded: progress.downloaded + event.data.chunkLength }));
+        }
+      });
+      setUpdateStatus("ready");
+      await relaunch();
+    } catch (caught) {
+      setUpdateStatus("available");
+      setUpdateError(`${t.updateDownloadFailed}\n${String(caught)}`);
+    }
+  };
 
   const chooseFolder = async () => {
     const selected = await open({ directory: true, multiple: false, title: t.chooseFolder });
@@ -403,11 +481,31 @@ export default function App() {
           <h1>{t.appName}</h1>
           <p>{t.tagline}</p>
         </div>
-        <div className="language-switch" aria-label="Language">
-          <button className={locale === "de" ? "active" : ""} onClick={() => setLocale("de")}>DE</button>
-          <button className={locale === "en" ? "active" : ""} onClick={() => setLocale("en")}>EN</button>
+        <div className="topbar-actions">
+          <button className="update-check" disabled={Boolean(availableUpdate) || updateStatus === "checking" || updateStatus === "downloading"} onClick={() => void checkForUpdate(true)}>
+            {updateStatus === "checking" ? t.checkingUpdates : t.checkForUpdates}
+          </button>
+          <div className="language-switch" aria-label="Language">
+            <button className={locale === "de" ? "active" : ""} onClick={() => setLocale("de")}>DE</button>
+            <button className={locale === "en" ? "active" : ""} onClick={() => setLocale("en")}>EN</button>
+          </div>
         </div>
       </header>
+
+      {availableUpdate && (
+        <section className="update-notice" aria-live="polite">
+          <div>
+            <h2>{t.updateAvailable.replace("{version}", availableUpdate.version)}</h2>
+            <p>{updateStatus === "downloading"
+              ? `${t.downloadingUpdate}${updateProgressPercent === null ? "" : ` ${updateProgressPercent}%`}`
+              : updateStatus === "ready" ? t.updateReady : t.updateAvailableHint}</p>
+            {availableUpdate.body && <small>{availableUpdate.body}</small>}
+          </div>
+          <button className="primary" disabled={updateStatus === "downloading" || updateStatus === "ready"} onClick={() => void installUpdate()}>
+            {updateStatus === "downloading" ? t.downloadingUpdate : updateStatus === "ready" ? t.updateReady : t.downloadUpdate}
+          </button>
+        </section>
+      )}
 
       <section className="card folder-card">
         <div>
@@ -428,6 +526,7 @@ export default function App() {
       </section>
 
       {(message || error) && <section className={`notice ${error ? "error" : "success"}`}>{error || message}</section>}
+      {updateError && <section className="notice error">{updateError}</section>}
 
       {files.length > 0 && (
         <>

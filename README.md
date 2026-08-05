@@ -24,6 +24,7 @@ Fertige Installationsdateien stehen bei jeder veröffentlichten Version unter [R
 - Benennt über temporäre Namen um und kann die letzte Aktion rückgängig machen.
 - Titel-Abkürzungen lassen sich ohne Online-Dienst einmalig zuordnen, etwa `soa` → `Sons of Anarchy`; die App speichert und nutzt sie für alle passenden Folgen.
 - Optional: TMDb-Titelsuche mit eigenem API-Schlüssel aus dem System-Schlüsselspeicher.
+- Prüft beim Start automatisch auf neue Versionen. Bei einem Treffer zeigt die App das Update an, lädt es nach Bestätigung signiert herunter und startet danach neu.
 
 ### Lokal starten
 
@@ -47,7 +48,7 @@ Die normale Umbenennung arbeitet komplett offline. Für die optionale Titelsuche
 
 ### Releases
 
-Ein Git-Tag wie `v0.1.0` erzeugt über GitHub Actions unsignierte Installer für Windows x64, macOS (Intel und Apple Silicon) sowie Linux x64 (AppImage und `.deb`). Unsignierte macOS- und Windows-Downloads können beim ersten Start eine Betriebssystem-Warnung zeigen.
+Ein Git-Tag wie `v0.1.0` erzeugt über GitHub Actions Installer für Windows x64, macOS (Intel und Apple Silicon) sowie Linux x64 (AppImage und `.deb`). Zusätzlich entsteht ein signiertes Update-Verzeichnis für die integrierte Update-Funktion. Die Installationsdateien selbst sind noch nicht mit einem Apple- bzw. Windows-Entwicklerzertifikat signiert; deshalb kann das Betriebssystem beim ersten Start warnen.
 
 ---
 
@@ -71,6 +72,7 @@ Ready-to-use installers for every released version are available under [Releases
 - Uses temporary names for safe renaming and can undo the latest operation.
 - Lets you map title abbreviations once without an online service, for example `soa` → `Sons of Anarchy`; the app saves and uses the mapping for every matching episode.
 - Optional TMDb title lookup with your own API key stored in the system credential store.
+- Automatically checks for new versions at startup. When one is found, the app displays it, securely downloads the signed update after confirmation, and then restarts.
 
 ### Run locally
 
@@ -94,7 +96,7 @@ Regular renaming works entirely offline. For optional title lookups, you enter y
 
 ### Releases
 
-A Git tag such as `v0.1.0` triggers GitHub Actions and produces unsigned installers for Windows x64, macOS (Intel and Apple Silicon), and Linux x64 (AppImage and `.deb`). Unsigned macOS and Windows downloads may show an operating-system warning on their first launch.
+A Git tag such as `v0.1.0` triggers GitHub Actions and produces installers for Windows x64, macOS (Intel and Apple Silicon), and Linux x64 (AppImage and `.deb`). It also creates a signed update manifest for the built-in updater. The installers themselves are not yet signed with Apple or Windows developer certificates, so the operating system may still display a warning when they are first opened.
 
 ## License / Lizenz
 
