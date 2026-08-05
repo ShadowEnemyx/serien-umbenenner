@@ -37,7 +37,7 @@ jobs:
               src-tauri/target/release/bundle/nsis/*.exe
               src-tauri/target/release/bundle/nsis/*.exe.sig
           - os: macos-latest
-            bundles: dmg
+            bundles: app,dmg
             tauri_target: --target universal-apple-darwin
             artifact: macos-universal
             artifact_path: |
