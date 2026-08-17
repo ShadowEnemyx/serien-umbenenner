@@ -84,6 +84,7 @@ const copy = {
     downloadUpdate: "Update herunterladen",
     downloadingUpdate: "Update wird heruntergeladen …",
     updateReady: "Update installiert – die App startet neu …",
+    upToDate: "Du verwendest bereits die neueste veröffentlichte Version.",
     updateCheckFailed: "Update-Prüfung fehlgeschlagen. Bitte später erneut versuchen.",
     updateDownloadFailed: "Das Update konnte nicht installiert werden. Bitte erneut versuchen.",
   },
@@ -151,6 +152,7 @@ const copy = {
     downloadUpdate: "Download update",
     downloadingUpdate: "Downloading update …",
     updateReady: "Update installed – restarting the app …",
+    upToDate: "You are already using the latest published version.",
     updateCheckFailed: "Update check failed. Please try again later.",
     updateDownloadFailed: "The update could not be installed. Please try again.",
   },
@@ -182,7 +184,7 @@ export default function App() {
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lastBatch, setLastBatch] = useState<BatchRecord | null>(null);
   const [availableUpdate, setAvailableUpdate] = useState<Update | null>(null);
-  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "available" | "downloading" | "ready" | "error">("idle");
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "available" | "downloading" | "ready" | "upToDate" | "error">("idle");
   const [updateProgress, setUpdateProgress] = useState<{ downloaded: number; total?: number }>({ downloaded: 0 });
   const [updateError, setUpdateError] = useState("");
   const updateCheckInProgress = useRef(false);
@@ -245,7 +247,7 @@ export default function App() {
         setUpdateStatus("available");
       } else {
         setAvailableUpdate(null);
-        setUpdateStatus("idle");
+        setUpdateStatus(showFailure ? "upToDate" : "idle");
       }
     } catch (caught) {
       setUpdateStatus("error");
@@ -539,6 +541,8 @@ export default function App() {
           </button>
         </section>
       )}
+
+      {updateStatus === "upToDate" && <section className="notice success" aria-live="polite">{t.upToDate}</section>}
 
       <section className="card folder-card">
         <div>
