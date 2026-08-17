@@ -42,6 +42,11 @@ const copy = {
     fullTitle: "Vollständiger Titel, z. B. Sons of Anarchy",
     applyAll: "Für alle anwenden",
     removeAlias: "Zuordnung löschen",
+    episodeTitle: "Titel für Folgen ohne Titel",
+    episodeTitleHint: "Für Dateien wie S08E01. Der Titel wird nur vor Folgen ohne vorhandenen Serien- oder Filmtitel gesetzt.",
+    episodeTitlePlaceholder: "z. B. Dragonball",
+    applyEpisodeTitle: "Titel hinzufügen",
+    clearEpisodeTitle: "Zurücksetzen",
     preview: "Vorschau",
     selected: "ausgewählt",
     apply: "Ausgewählte Dateien umbenennen",
@@ -79,6 +84,7 @@ const copy = {
     downloadUpdate: "Update herunterladen",
     downloadingUpdate: "Update wird heruntergeladen …",
     updateReady: "Update installiert – die App startet neu …",
+    upToDate: "Du verwendest bereits die neueste veröffentlichte Version.",
     updateCheckFailed: "Update-Prüfung fehlgeschlagen. Bitte später erneut versuchen.",
     updateDownloadFailed: "Das Update konnte nicht installiert werden. Bitte erneut versuchen.",
   },
@@ -104,6 +110,11 @@ const copy = {
     fullTitle: "Full title, e.g. Sons of Anarchy",
     applyAll: "Apply to all",
     removeAlias: "Delete mapping",
+    episodeTitle: "Title for titleless episodes",
+    episodeTitleHint: "For files such as S08E01. The title is added only before episodes that have no existing series or movie title.",
+    episodeTitlePlaceholder: "e.g. Dragonball",
+    applyEpisodeTitle: "Add title",
+    clearEpisodeTitle: "Reset",
     preview: "Preview",
     selected: "selected",
     apply: "Rename selected files",
@@ -141,6 +152,7 @@ const copy = {
     downloadUpdate: "Download update",
     downloadingUpdate: "Downloading update …",
     updateReady: "Update installed – restarting the app …",
+    upToDate: "You are already using the latest published version.",
     updateCheckFailed: "Update check failed. Please try again later.",
     updateDownloadFailed: "The update could not be installed. Please try again.",
   },
@@ -158,6 +170,8 @@ export default function App() {
   const [manualPrefix, setManualPrefix] = useState("");
   const [manualAlias, setManualAlias] = useState("");
   const [manualTitle, setManualTitle] = useState("");
+  const [episodeTitleInput, setEpisodeTitleInput] = useState("");
+  const [episodeTitle, setEpisodeTitle] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -170,7 +184,7 @@ export default function App() {
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lastBatch, setLastBatch] = useState<BatchRecord | null>(null);
   const [availableUpdate, setAvailableUpdate] = useState<Update | null>(null);
-  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "available" | "downloading" | "ready" | "error">("idle");
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "available" | "downloading" | "ready" | "upToDate" | "error">("idle");
   const [updateProgress, setUpdateProgress] = useState<{ downloaded: number; total?: number }>({ downloaded: 0 });
   const [updateError, setUpdateError] = useState("");
   const updateCheckInProgress = useRef(false);
@@ -192,9 +206,13 @@ export default function App() {
     nextFiles = files,
     nextAliases = aliases,
     nextRemoveTechnical = removeTechnical,
+    nextEpisodeTitle = episodeTitle,
   ) => {
-    setProposals(createProposals(nextFiles, nextRules, nextAliases, { removeTechnical: nextRemoveTechnical }));
-  }, [aliases, files, removeTechnical, rules]);
+    setProposals(createProposals(nextFiles, nextRules, nextAliases, {
+      removeTechnical: nextRemoveTechnical,
+      episodeTitle: nextEpisodeTitle,
+    }));
+  }, [aliases, episodeTitle, files, removeTechnical, rules]);
 
   const loadRules = useCallback(async () => {
     try {
@@ -229,7 +247,7 @@ export default function App() {
         setUpdateStatus("available");
       } else {
         setAvailableUpdate(null);
-        setUpdateStatus("idle");
+        setUpdateStatus(showFailure ? "upToDate" : "idle");
       }
     } catch (caught) {
       setUpdateStatus("error");
@@ -272,6 +290,8 @@ export default function App() {
       setFolder(selected);
       setFiles([]);
       setProposals([]);
+      setEpisodeTitleInput("");
+      setEpisodeTitle("");
       setMessage("");
       setError("");
     }
@@ -331,6 +351,21 @@ export default function App() {
     void saveAliases(nextAliases);
     setManualAlias("");
     setManualTitle("");
+  };
+
+  const applyEpisodeTitle = () => {
+    const title = episodeTitleInput.trim();
+    if (!title) return;
+
+    setEpisodeTitleInput(title);
+    setEpisodeTitle(title);
+    refreshPreview(rules, files, aliases, removeTechnical, title);
+  };
+
+  const clearEpisodeTitle = () => {
+    setEpisodeTitleInput("");
+    setEpisodeTitle("");
+    refreshPreview(rules, files, aliases, removeTechnical, "");
   };
 
   const changeTechnicalCleanup = (enabled: boolean) => {
@@ -507,6 +542,8 @@ export default function App() {
         </section>
       )}
 
+      {updateStatus === "upToDate" && <section className="notice success" aria-live="polite">{t.upToDate}</section>}
+
       <section className="card folder-card">
         <div>
           <h2>{t.chooseFolder}</h2>
@@ -567,6 +604,14 @@ export default function App() {
                 {aliases.map((alias) => <div key={normalisePrefix(alias.value)}><span><strong>{alias.value}</strong> → {alias.title}</span><button className="text-button" onClick={() => void saveAliases(aliases.filter((item) => normalisePrefix(item.value) !== normalisePrefix(alias.value)))}>{t.removeAlias}</button></div>)}
               </div>}
             </section>
+            <section className="episode-title">
+              <div><strong>{t.episodeTitle}</strong><small>{t.episodeTitleHint}</small></div>
+              <form onSubmit={(event) => { event.preventDefault(); applyEpisodeTitle(); }}>
+                <input value={episodeTitleInput} onChange={(event) => setEpisodeTitleInput(event.target.value)} placeholder={t.episodeTitlePlaceholder} />
+                <button disabled={!episodeTitleInput.trim()}>{t.applyEpisodeTitle}</button>
+                {episodeTitle && <button type="button" className="text-button" onClick={clearEpisodeTitle}>{t.clearEpisodeTitle}</button>}
+              </form>
+            </section>
           </section>
 
           <details className="card settings-card">
@@ -596,7 +641,7 @@ export default function App() {
                       <td><input type="checkbox" checked={proposal.selected} disabled={proposal.sourceName === proposal.targetName} onChange={(event) => setProposal(proposal.id, { selected: event.target.checked })} /></td>
                       <td>{proposal.sourceName}</td>
                       <td><input className="filename-input" value={proposal.targetName} onChange={(event) => setProposal(proposal.id, { targetName: event.target.value, selected: true })} /></td>
-                      <td>{proposal.appliedPrefix ?? t.noPrefix}</td>
+                      <td>{proposal.appliedPrefix ?? proposal.appliedAlias ?? t.noPrefix}</td>
                       <td>{hasApiKey && <button className="tiny-button" onClick={() => void searchTmdb(proposal)}>{t.tmdb}</button>}</td>
                     </tr>
                   ))}
