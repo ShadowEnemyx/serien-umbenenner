@@ -55,6 +55,18 @@ describe("readableStem", () => {
       ).stem,
     ).toBe("Sons of Anarchy S03E04");
   });
+
+  it("adds a supplied title to episode-only filenames without changing the episode", () => {
+    expect(readableStem("s8e1", [], [], { removeTechnical: true, episodeTitle: "Dragonball" }).stem).toBe(
+      "Dragonball S08E01",
+    );
+  });
+
+  it("does not add a supplied episode title when the filename already has a title", () => {
+    expect(readableStem("Dragonball S08E01", [], [], { removeTechnical: true, episodeTitle: "Another Show" }).stem).toBe(
+      "Dragonball S08E01",
+    );
+  });
 });
 
 describe("proposal and candidate creation", () => {
@@ -63,6 +75,19 @@ describe("proposal and candidate creation", () => {
       { value: "tvkids", action: "remove" },
     ]);
     expect(proposal).toMatchObject({ targetName: "Danny Phantom S01E15.mkv", selected: true });
+  });
+
+  it("selects episode-only files after adding a supplied title", () => {
+    const proposals = createProposals(
+      [file("S08E01.avi"), file("S08E02.avi")],
+      [],
+      [],
+      { removeTechnical: true, episodeTitle: "Dragonball" },
+    );
+    expect(proposals).toMatchObject([
+      { targetName: "Dragonball S08E01.avi", selected: true, appliedAlias: "Dragonball" },
+      { targetName: "Dragonball S08E02.avi", selected: true, appliedAlias: "Dragonball" },
+    ]);
   });
 
   it("groups unknown leading tokens and excludes saved rules", () => {

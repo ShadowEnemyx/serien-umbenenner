@@ -32,6 +32,7 @@ const TECHNICAL_TOKENS = new Set([
 
 export interface RenameOptions {
   removeTechnical: boolean;
+  episodeTitle?: string;
 }
 
 export function normalisePrefix(value: string): string {
@@ -114,19 +115,21 @@ export function readableStem(
   const titleTokenCount = titleTokensFor(visible, options).length;
   const suffix = visible.slice(titleTokenCount).filter((token) => !(options.removeTechnical && isTechnicalToken(token)));
   const formattedSuffix = suffix.map((part, index) => titleCasePart(part, index, suffix.length));
-  const formattedTitle = alias
-    ? alias.title
-    : visible
-        .slice(0, titleTokenCount)
-        .map((part, index) => titleCasePart(part, index, titleTokenCount))
-        .join(" ");
+  const suppliedEpisodeTitle = titleTokenCount === 0 && suffix.some(isEpisodeToken)
+    ? safeFilePart(options.episodeTitle ?? "")
+    : "";
+  const existingTitle = visible
+    .slice(0, titleTokenCount)
+    .map((part, index) => titleCasePart(part, index, titleTokenCount))
+    .join(" ");
+  const formattedTitle = alias?.title || suppliedEpisodeTitle || existingTitle;
   const formatted = [formattedTitle, ...formattedSuffix].filter(Boolean);
   if (formatted.length === 0) return { stem };
 
   return {
     stem: safeFilePart(formatted.join(" ")) || stem,
     appliedPrefix: removal?.value,
-    appliedAlias: alias?.title,
+    appliedAlias: alias?.title ?? (suppliedEpisodeTitle || undefined),
   };
 }
 

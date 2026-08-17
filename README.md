@@ -23,6 +23,7 @@ Fertige Installationsdateien stehen bei jeder veröffentlichten Version unter [R
 - Zeigt eine editierbare Vorschau, schützt vor Überschreiben und löst Namenskonflikte einzeln oder für alle mit eindeutigen Nummern.
 - Benennt über temporäre Namen um und kann die letzte Aktion rückgängig machen.
 - Titel-Abkürzungen lassen sich ohne Online-Dienst einmalig zuordnen, etwa `soa` → `Sons of Anarchy`; die App speichert und nutzt sie für alle passenden Folgen.
+- Dateien, die nur aus Staffel und Folge bestehen, etwa `S08E01.avi`, können über einen einmalig eingegebenen Titel gesammelt zu `Dragonball S08E01.avi` ergänzt werden.
 - Optional: TMDb-Titelsuche mit eigenem API-Schlüssel aus dem System-Schlüsselspeicher.
 - Prüft beim Start automatisch auf neue Versionen. Bei einem Treffer zeigt die App das Update an, lädt es nach Bestätigung signiert herunter und startet danach neu.
 
@@ -71,6 +72,7 @@ Ready-to-use installers for every released version are available under [Releases
 - Shows an editable preview, prevents overwrites, and resolves name conflicts individually or for all files with unique numbered names.
 - Uses temporary names for safe renaming and can undo the latest operation.
 - Lets you map title abbreviations once without an online service, for example `soa` → `Sons of Anarchy`; the app saves and uses the mapping for every matching episode.
+- Files containing only season and episode information, such as `S08E01.avi`, can receive a supplied title in one batch, for example `Dragonball S08E01.avi`.
 - Optional TMDb title lookup with your own API key stored in the system credential store.
 - Automatically checks for new versions at startup. When one is found, the app displays it, securely downloads the signed update after confirmation, and then restarts.
 
