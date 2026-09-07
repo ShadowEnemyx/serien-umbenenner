@@ -2,6 +2,7 @@ import type { PrefixCandidate, PrefixRule, RenameProposal, TitleAlias, VideoFile
 
 const EPISODE = /^s(\d{1,2})e(\d{1,3})$/i;
 const ALT_EPISODE = /^(\d{1,2})x(\d{1,3})$/i;
+const YEAR = /^(?:18|19|20)\d{2}$/;
 const LOWERCASE_WORDS = new Set([
   "und",
   "and",
@@ -33,6 +34,8 @@ const TECHNICAL_TOKENS = new Set([
 export interface RenameOptions {
   removeTechnical: boolean;
   episodeTitle?: string;
+  titleOverride?: string;
+  titleOverrides?: Record<string, string>;
 }
 
 export function normalisePrefix(value: string): string {
@@ -52,7 +55,7 @@ function isTechnicalToken(token: string): boolean {
 
 function titleTokensFor(tokens: string[], options: RenameOptions): string[] {
   const boundary = tokens.findIndex(
-    (token) => isEpisodeToken(token) || (options.removeTechnical && isTechnicalToken(token)),
+    (token) => isEpisodeToken(token) || YEAR.test(token) || (options.removeTechnical && isTechnicalToken(token)),
   );
   return boundary === -1 ? tokens : tokens.slice(0, boundary);
 }
@@ -122,14 +125,15 @@ export function readableStem(
     .slice(0, titleTokenCount)
     .map((part, index) => titleCasePart(part, index, titleTokenCount))
     .join(" ");
-  const formattedTitle = alias?.title || suppliedEpisodeTitle || existingTitle;
+  const suppliedTitle = safeFilePart(options.titleOverride ?? "");
+  const formattedTitle = suppliedTitle || alias?.title || suppliedEpisodeTitle || existingTitle;
   const formatted = [formattedTitle, ...formattedSuffix].filter(Boolean);
   if (formatted.length === 0) return { stem };
 
   return {
     stem: safeFilePart(formatted.join(" ")) || stem,
     appliedPrefix: removal?.value,
-    appliedAlias: alias?.title ?? (suppliedEpisodeTitle || undefined),
+    appliedAlias: suppliedTitle || alias?.title || suppliedEpisodeTitle || undefined,
   };
 }
 
@@ -140,7 +144,10 @@ export function createProposals(
   options: RenameOptions = { removeTechnical: true },
 ): RenameProposal[] {
   return files.map((file) => {
-    const formatted = readableStem(file.stem, rules, aliases, options);
+    const formatted = readableStem(file.stem, rules, aliases, {
+      ...options,
+      titleOverride: options.titleOverrides?.[file.id],
+    });
     const targetName = `${formatted.stem}${file.extension}`;
     return {
       id: file.id,
@@ -175,4 +182,19 @@ export function findPrefixCandidates(files: VideoFile[], rules: PrefixRule[]): P
 
 export function titleForLookup(stem: string, rules: PrefixRule[], options: RenameOptions): string {
   return aliasKeyForStem(stem, rules, options);
+}
+
+export function titleLookupQueries(stem: string, rules: PrefixRule[], options: RenameOptions): string[] {
+  const tokens = tokensFor(stem);
+  const primary = titleForLookup(stem, rules, options);
+  if (tokens.length === 0) return [];
+
+  const first = normalisePrefix(tokens[0]);
+  const hasKnownRemoval = rules.some((rule) => rule.action === "remove" && normalisePrefix(rule.value) === first);
+  if (hasKnownRemoval) return primary ? [primary] : [];
+
+  const fallback = titleTokensFor(tokens.slice(1), options)
+    .map(normalisePrefix)
+    .join(" ");
+  return [...new Set([primary, fallback].filter(Boolean))];
 }

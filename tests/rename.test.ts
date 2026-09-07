@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aliasKeyForStem, createProposals, findPrefixCandidates, readableStem } from "../src/lib/rename";
+import { aliasKeyForStem, createProposals, findPrefixCandidates, readableStem, titleLookupQueries } from "../src/lib/rename";
 import type { VideoFile } from "../src/lib/types";
 
 const file = (name: string): VideoFile => {
@@ -67,6 +67,26 @@ describe("readableStem", () => {
       "Dragonball S08E01",
     );
   });
+
+  it("replaces an existing title while preserving the episode and extension metadata", () => {
+    expect(
+      readableStem(
+        "tvr-soa-s01e01-720p",
+        [{ value: "tvr", action: "remove" }],
+        [],
+        { removeTechnical: true, titleOverride: "Sons of Anarchy" },
+      ).stem,
+    ).toBe("Sons of Anarchy S01E01");
+  });
+
+  it("preserves a film year when replacing the title", () => {
+    expect(
+      readableStem("tvarchiv-the-matrix-1999-1080p", [{ value: "tvarchiv", action: "remove" }], [], {
+        removeTechnical: true,
+        titleOverride: "The Matrix",
+      }).stem,
+    ).toBe("The Matrix 1999");
+  });
 });
 
 describe("proposal and candidate creation", () => {
@@ -90,6 +110,19 @@ describe("proposal and candidate creation", () => {
     ]);
   });
 
+  it("selects title-only episodes after a per-file title override", () => {
+    const proposals = createProposals(
+      [file("S08E01.avi"), file("S08E02.avi")],
+      [],
+      [],
+      { removeTechnical: true, titleOverrides: { "S08E01.avi": "Dragonball" } },
+    );
+    expect(proposals).toMatchObject([
+      { targetName: "Dragonball S08E01.avi", selected: true },
+      { targetName: "S08E02.avi", selected: false },
+    ]);
+  });
+
   it("groups unknown leading tokens and excludes saved rules", () => {
     const candidates = findPrefixCandidates(
       [file("tvkids.danny.phantom.s01e15.mkv"), file("tvkids.danny.phantom.s01e16.mkv"), file("archive.x.s01e01.mkv")],
@@ -102,5 +135,17 @@ describe("proposal and candidate creation", () => {
     expect(findPrefixCandidates([file("tvr-soa-s01e01-720p.mkv")], [])).toEqual([
       { value: "tvr", count: 1, examples: ["tvr-soa-s01e01-720p.mkv"] },
     ]);
+  });
+});
+
+describe("TMDb lookup queries", () => {
+  it("uses a known removal rule before looking up a title", () => {
+    expect(titleLookupQueries("tvkids.danny.phantom.s01e15", [{ value: "tvkids", action: "remove" }], { removeTechnical: true }))
+      .toEqual(["danny phantom"]);
+  });
+
+  it("falls back to a query without an unknown leading prefix", () => {
+    expect(titleLookupQueries("tvr-soa-s01e01-720p", [], { removeTechnical: true }))
+      .toEqual(["tvr soa", "soa"]);
   });
 });
