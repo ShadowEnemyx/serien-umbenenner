@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { aliasKeyForStem, createProposals, findPrefixCandidates, normalisePrefix, titleForLookup } from "./lib/rename";
+import { aliasKeyForStem, createProposals, findPrefixCandidates, normalisePrefix, titleLookupQueries } from "./lib/rename";
 import type {
   BatchRecord,
   PrefixRule,
@@ -61,6 +61,14 @@ const copy = {
     searching: "Suche …",
     noResults: "Keine passenden Titel gefunden.",
     chooseTitle: "Titel übernehmen",
+    ownTitle: "Eigener Titel",
+    ownTitlePlaceholder: "z. B. Sons of Anarchy",
+    applySelectedTitle: "Für angehakte übernehmen",
+    selectFilesFirst: "Wähle mindestens eine Datei aus.",
+    titleApplied: "Titel für die Auswahl übernommen.",
+    file: "Datei",
+    finalName: "Ergebnis",
+    tmdbColumn: "TMDb",
     empty: "Wähle einen Ordner und starte den Scan.",
     noVideos: "Keine unterstützten Videodateien gefunden.",
     original: "Original",
@@ -129,6 +137,14 @@ const copy = {
     searching: "Searching …",
     noResults: "No matching titles found.",
     chooseTitle: "Use title",
+    ownTitle: "Your title",
+    ownTitlePlaceholder: "e.g. Sons of Anarchy",
+    applySelectedTitle: "Apply to selected",
+    selectFilesFirst: "Select at least one file.",
+    titleApplied: "Title applied to the selection.",
+    file: "File",
+    finalName: "Result",
+    tmdbColumn: "TMDb",
     empty: "Choose a folder and start a scan.",
     noVideos: "No supported video files were found.",
     original: "Original",
@@ -170,8 +186,8 @@ export default function App() {
   const [manualPrefix, setManualPrefix] = useState("");
   const [manualAlias, setManualAlias] = useState("");
   const [manualTitle, setManualTitle] = useState("");
-  const [episodeTitleInput, setEpisodeTitleInput] = useState("");
-  const [episodeTitle, setEpisodeTitle] = useState("");
+  const [titleInputs, setTitleInputs] = useState<Record<string, string>>({});
+  const [titleOverrides, setTitleOverrides] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -193,9 +209,14 @@ export default function App() {
   const t = copy[locale];
   const candidates = useMemo(() => findPrefixCandidates(files, rules), [files, rules]);
   const selectedCount = useMemo(
+    () => proposals.filter((proposal) => proposal.selected).length,
+    [proposals],
+  );
+  const renameCount = useMemo(
     () => proposals.filter((proposal) => proposal.selected && proposal.sourceName !== proposal.targetName).length,
     [proposals],
   );
+  const allFilesSelected = proposals.length > 0 && proposals.every((proposal) => proposal.selected);
   const currentConflict = conflicts[0];
   const updateProgressPercent = updateProgress.total && updateProgress.total > 0
     ? Math.min(100, Math.round((updateProgress.downloaded / updateProgress.total) * 100))
@@ -206,13 +227,20 @@ export default function App() {
     nextFiles = files,
     nextAliases = aliases,
     nextRemoveTechnical = removeTechnical,
-    nextEpisodeTitle = episodeTitle,
+    nextTitleOverrides = titleOverrides,
+    preserveSelection = false,
   ) => {
-    setProposals(createProposals(nextFiles, nextRules, nextAliases, {
+    const nextProposals = createProposals(nextFiles, nextRules, nextAliases, {
       removeTechnical: nextRemoveTechnical,
-      episodeTitle: nextEpisodeTitle,
-    }));
-  }, [aliases, episodeTitle, files, removeTechnical, rules]);
+      titleOverrides: nextTitleOverrides,
+    });
+    setProposals((current) => preserveSelection
+      ? nextProposals.map((proposal) => {
+        const previous = current.find((item) => item.id === proposal.id);
+        return previous ? { ...proposal, selected: previous.selected } : proposal;
+      })
+      : nextProposals);
+  }, [aliases, files, removeTechnical, rules, titleOverrides]);
 
   const loadRules = useCallback(async () => {
     try {
@@ -290,8 +318,8 @@ export default function App() {
       setFolder(selected);
       setFiles([]);
       setProposals([]);
-      setEpisodeTitleInput("");
-      setEpisodeTitle("");
+      setTitleInputs({});
+      setTitleOverrides({});
       setMessage("");
       setError("");
     }
@@ -306,7 +334,9 @@ export default function App() {
       const result = await invoke<ScanResult>("scan_folder", { path: folder, includeSubfolders });
       setFolder(result.root);
       setFiles(result.files);
-      refreshPreview(rules, result.files, aliases, removeTechnical);
+      setTitleInputs({});
+      setTitleOverrides({});
+      refreshPreview(rules, result.files, aliases, removeTechnical, {});
     } catch (caught) {
       setError(String(caught));
     } finally {
@@ -316,7 +346,7 @@ export default function App() {
 
   const saveRules = async (nextRules: PrefixRule[]) => {
     setRules(nextRules);
-    refreshPreview(nextRules, files, aliases, removeTechnical);
+    refreshPreview(nextRules, files, aliases, removeTechnical, titleOverrides, true);
     try {
       await invoke("save_prefix_rules", { rules: nextRules });
       setMessage(t.saved);
@@ -325,9 +355,9 @@ export default function App() {
     }
   };
 
-  const saveAliases = async (nextAliases: TitleAlias[]) => {
+  const saveAliases = async (nextAliases: TitleAlias[], nextTitleOverrides = titleOverrides, preserveSelection = true) => {
     setAliases(nextAliases);
-    refreshPreview(rules, files, nextAliases, removeTechnical);
+    refreshPreview(rules, files, nextAliases, removeTechnical, nextTitleOverrides, preserveSelection);
     try {
       await invoke("save_title_aliases", { aliases: nextAliases });
       setMessage(t.saved);
@@ -353,28 +383,55 @@ export default function App() {
     setManualTitle("");
   };
 
-  const applyEpisodeTitle = () => {
-    const title = episodeTitleInput.trim();
-    if (!title) return;
-
-    setEpisodeTitleInput(title);
-    setEpisodeTitle(title);
-    refreshPreview(rules, files, aliases, removeTechnical, title);
-  };
-
-  const clearEpisodeTitle = () => {
-    setEpisodeTitleInput("");
-    setEpisodeTitle("");
-    refreshPreview(rules, files, aliases, removeTechnical, "");
-  };
-
   const changeTechnicalCleanup = (enabled: boolean) => {
     setRemoveTechnical(enabled);
-    refreshPreview(rules, files, aliases, enabled);
+    refreshPreview(rules, files, aliases, enabled, titleOverrides, true);
   };
 
   const setProposal = (id: string, patch: Partial<RenameProposal>) => {
     setProposals((current) => current.map((proposal) => (proposal.id === id ? { ...proposal, ...patch } : proposal)));
+  };
+
+  const setAllProposalsSelected = (selected: boolean) => {
+    setProposals((current) => current.map((proposal) => ({ ...proposal, selected })));
+  };
+
+  const applyTitleToSelected = async (title: string): Promise<boolean> => {
+    const cleanTitle = title.trim();
+    const selected = proposals.filter((proposal) => proposal.selected);
+    if (!cleanTitle || selected.length === 0) {
+      if (selected.length === 0) setError(t.selectFilesFirst);
+      return false;
+    }
+
+    const selectedIds = new Set(selected.map((proposal) => proposal.id));
+    const nextTitleOverrides = {
+      ...titleOverrides,
+      ...Object.fromEntries(selected.map((proposal) => [proposal.id, cleanTitle])),
+    };
+    const aliasValues = [...new Set(selected
+      .map((proposal) => files.find((file) => file.id === proposal.id))
+      .filter((file): file is VideoFile => Boolean(file))
+      .map((file) => aliasKeyForStem(file.stem, rules, { removeTechnical }))
+      .filter(Boolean))];
+    const nextAliases = [
+      ...aliases.filter((alias) => !aliasValues.some((value) => normalisePrefix(alias.value) === normalisePrefix(value))),
+      ...aliasValues.map((value) => ({ value, title: cleanTitle })),
+    ];
+
+    setError("");
+    setTitleOverrides(nextTitleOverrides);
+    setTitleInputs((current) => ({
+      ...current,
+      ...Object.fromEntries(proposals.filter((proposal) => selectedIds.has(proposal.id)).map((proposal) => [proposal.id, cleanTitle])),
+    }));
+    if (aliasValues.length > 0) {
+      await saveAliases(nextAliases, nextTitleOverrides, true);
+    } else {
+      refreshPreview(rules, files, aliases, removeTechnical, nextTitleOverrides, true);
+      setMessage(t.titleApplied);
+    }
+    return true;
   };
 
   const itemsForRename = () => proposals
@@ -486,8 +543,11 @@ export default function App() {
     setLookupLoading(true);
     setError("");
     try {
-      const query = titleForLookup(file.stem, rules, { removeTechnical });
-      const results = await invoke<TmdbCandidate[]>("search_tmdb", { query, language: locale === "de" ? "de-DE" : "en-US" });
+      let results: TmdbCandidate[] = [];
+      for (const query of titleLookupQueries(file.stem, rules, { removeTechnical })) {
+        results = await invoke<TmdbCandidate[]>("search_tmdb", { query, language: locale === "de" ? "de-DE" : "en-US" });
+        if (results.length > 0) break;
+      }
       setLookupResults(results);
     } catch (caught) {
       setError(String(caught));
@@ -499,13 +559,7 @@ export default function App() {
 
   const useTmdbTitle = async (candidate: TmdbCandidate) => {
     if (!lookupProposal) return;
-    const file = files.find((item) => item.id === lookupProposal.id);
-    if (!file) return;
-    const value = aliasKeyForStem(file.stem, rules, { removeTechnical });
-    if (!value) return;
-    const nextAliases = [...aliases.filter((alias) => normalisePrefix(alias.value) !== value), { value, title: candidate.title }];
-    setLookupProposal(null);
-    await saveAliases(nextAliases);
+    if (await applyTitleToSelected(candidate.title)) setLookupProposal(null);
   };
 
   return (
@@ -593,8 +647,12 @@ export default function App() {
               <input type="checkbox" checked={removeTechnical} onChange={(event) => changeTechnicalCleanup(event.target.checked)} />
               <span><strong>{t.technical}</strong><small>{t.technicalHint}</small></span>
             </label>
+          </section>
+
+          <details className="card settings-card">
+            <summary>{t.titleAliases}</summary>
+            <p>{t.titleAliasesHint}</p>
             <section className="title-aliases">
-              <div><strong>{t.titleAliases}</strong><small>{t.titleAliasesHint}</small></div>
               <form onSubmit={(event) => { event.preventDefault(); addAlias(); }}>
                 <input value={manualAlias} onChange={(event) => setManualAlias(event.target.value)} placeholder={t.abbreviation} />
                 <input value={manualTitle} onChange={(event) => setManualTitle(event.target.value)} placeholder={t.fullTitle} />
@@ -604,15 +662,7 @@ export default function App() {
                 {aliases.map((alias) => <div key={normalisePrefix(alias.value)}><span><strong>{alias.value}</strong> → {alias.title}</span><button className="text-button" onClick={() => void saveAliases(aliases.filter((item) => normalisePrefix(item.value) !== normalisePrefix(alias.value)))}>{t.removeAlias}</button></div>)}
               </div>}
             </section>
-            <section className="episode-title">
-              <div><strong>{t.episodeTitle}</strong><small>{t.episodeTitleHint}</small></div>
-              <form onSubmit={(event) => { event.preventDefault(); applyEpisodeTitle(); }}>
-                <input value={episodeTitleInput} onChange={(event) => setEpisodeTitleInput(event.target.value)} placeholder={t.episodeTitlePlaceholder} />
-                <button disabled={!episodeTitleInput.trim()}>{t.applyEpisodeTitle}</button>
-                {episodeTitle && <button type="button" className="text-button" onClick={clearEpisodeTitle}>{t.clearEpisodeTitle}</button>}
-              </form>
-            </section>
-          </section>
+          </details>
 
           <details className="card settings-card">
             <summary>{t.settings}</summary>
@@ -629,19 +679,18 @@ export default function App() {
               <div><h2>{t.preview}</h2><p>{selectedCount} {t.selected}</p></div>
               <div className="preview-actions">
                 {lastBatch && <button className="secondary" disabled={busy} onClick={() => void undo()}>{t.undo}</button>}
-                <button className="primary" disabled={busy || selectedCount === 0} onClick={() => void validateAndApply()}>{busy ? t.applying : t.apply}</button>
+                <button className="primary" disabled={busy || renameCount === 0} onClick={() => void validateAndApply()}>{busy ? t.applying : t.apply}</button>
               </div>
             </div>
             <div className="table-wrap">
               <table>
-                <thead><tr><th></th><th>{t.original}</th><th>{t.newName}</th><th>{t.reason}</th><th></th></tr></thead>
+                <thead><tr><th><input type="checkbox" checked={allFilesSelected} onChange={(event) => setAllProposalsSelected(event.target.checked)} aria-label={t.applyAll} /></th><th>{t.file}</th><th>{t.ownTitle}</th><th>{t.tmdbColumn}</th></tr></thead>
                 <tbody>
                   {proposals.map((proposal) => (
                     <tr key={proposal.id} className={proposal.selected ? "" : "dim"}>
-                      <td><input type="checkbox" checked={proposal.selected} disabled={proposal.sourceName === proposal.targetName} onChange={(event) => setProposal(proposal.id, { selected: event.target.checked })} /></td>
-                      <td>{proposal.sourceName}</td>
-                      <td><input className="filename-input" value={proposal.targetName} onChange={(event) => setProposal(proposal.id, { targetName: event.target.value, selected: true })} /></td>
-                      <td>{proposal.appliedPrefix ?? proposal.appliedAlias ?? t.noPrefix}</td>
+                      <td><input type="checkbox" checked={proposal.selected} onChange={(event) => setProposal(proposal.id, { selected: event.target.checked })} /></td>
+                      <td><div className="file-cell"><strong>{proposal.sourceName}</strong><small>{t.finalName}: {proposal.targetName}</small></div></td>
+                      <td><div className="title-editor"><input value={titleInputs[proposal.id] ?? ""} onChange={(event) => setTitleInputs((current) => ({ ...current, [proposal.id]: event.target.value }))} placeholder={t.ownTitlePlaceholder} /><button className="tiny-button" disabled={!(titleInputs[proposal.id] ?? "").trim()} onClick={() => void applyTitleToSelected(titleInputs[proposal.id] ?? "")}>{t.applySelectedTitle}</button></div></td>
                       <td>{hasApiKey && <button className="tiny-button" onClick={() => void searchTmdb(proposal)}>{t.tmdb}</button>}</td>
                     </tr>
                   ))}

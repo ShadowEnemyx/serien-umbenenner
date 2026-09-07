@@ -57,16 +57,10 @@ input { min-width: 0; border: 1px solid #405e4a; border-radius: 8px; padding: .6
 .technical-option { grid-column: 2; align-items: start; padding-top: .2rem; }
 .technical-option span { display: grid; gap: .15rem; }
 .technical-option small { color: #aab9ad; font-size: .8rem; line-height: 1.35; }
-.title-aliases { display: grid; grid-column: 2; gap: .6rem; padding-top: .45rem; }
-.title-aliases > div:first-child { display: grid; gap: .15rem; }
-.title-aliases small { color: #aab9ad; font-size: .8rem; line-height: 1.35; }
+.title-aliases { display: grid; gap: .6rem; padding-top: .45rem; }
 .title-aliases form { display: grid; grid-template-columns: minmax(8rem, .45fr) 1fr auto; gap: .5rem; }
 .alias-list { display: grid; gap: .35rem; }
 .alias-list > div { display: flex; justify-content: space-between; align-items: center; gap: .8rem; padding: .45rem .6rem; border-radius: 8px; background: #18271d; color: #c7d8c9; font-size: .86rem; }
-.episode-title { display: grid; grid-column: 2; gap: .6rem; padding-top: .45rem; }
-.episode-title > div { display: grid; gap: .15rem; }
-.episode-title small { color: #aab9ad; font-size: .8rem; line-height: 1.35; }
-.episode-title form { display: grid; grid-template-columns: 1fr auto auto; gap: .5rem; }
 .settings-card summary { cursor: pointer; font-weight: 800; }
 .settings-card p { margin-top: .7rem; max-width: 54rem; font-size: .88rem; }
 .settings-row { display: flex; gap: .5rem; margin-top: .9rem; }
@@ -76,12 +70,16 @@ input { min-width: 0; border: 1px solid #405e4a; border-radius: 8px; padding: .6
 .preview-header { justify-content: space-between; margin-bottom: 1rem; }
 .preview-header p { font-size: .85rem; }
 .table-wrap { overflow-x: auto; border: 1px solid #2d4836; border-radius: 10px; }
-table { width: 100%; border-collapse: collapse; min-width: 700px; font-size: .86rem; }
+table { width: 100%; border-collapse: collapse; min-width: 840px; font-size: .86rem; }
 th, td { padding: .7rem .75rem; text-align: left; border-bottom: 1px solid #294431; vertical-align: middle; }
 th { color: #aebdae; font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; }
 tbody tr:last-child td { border-bottom: 0; }
 tr.dim { opacity: .46; }
-.filename-input { width: 100%; min-width: 240px; padding: .45rem .55rem; font-size: .84rem; }
+.file-cell { display: grid; gap: .28rem; min-width: 230px; }
+.file-cell small { color: #aebdae; overflow-wrap: anywhere; }
+.title-editor { display: grid; grid-template-columns: minmax(12rem, 1fr) auto; gap: .45rem; align-items: center; min-width: 280px; }
+.title-editor input { width: 100%; padding: .45rem .55rem; font-size: .84rem; }
+.title-editor button { white-space: nowrap; }
 .empty-state { padding: 2.5rem; text-align: center; color: #aab9ad; margin-top: 1rem; }
 
 .modal-backdrop { position: fixed; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgba(4, 8, 5, .75); z-index: 10; }
@@ -101,8 +99,8 @@ tr.dim { opacity: .46; }
   .folder-card, .rules-card { grid-template-columns: 1fr; }
   .folder-actions { justify-content: start; flex-wrap: wrap; }
   .folder-card > .primary { justify-self: start; }
-  .manual-rule, .technical-option, .title-aliases, .episode-title { grid-column: auto; }
-  .title-aliases form, .episode-title form { grid-template-columns: 1fr; }
+  .manual-rule, .technical-option { grid-column: auto; }
+  .title-aliases form, .title-editor { grid-template-columns: 1fr; }
   .preview-header { align-items: start; flex-direction: column; }
   .preview-actions { flex-wrap: wrap; }
   .topbar-actions, .update-notice { align-items: stretch; flex-direction: column; }
