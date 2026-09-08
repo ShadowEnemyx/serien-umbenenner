@@ -20,12 +20,12 @@ Fertige Installationsdateien stehen bei jeder veröffentlichten Version unter [R
 - Speichert bestätigte Regeln lokal und wendet nur bestätigte Entfernen-Regeln an.
 - Formatiert Namen wie `tvkids.danny.phantom.s01e15.mkv` zu `Danny Phantom S01E15.mkv`.
 - Verarbeitet auch Bindestriche wie `tvr-soa-s01e01-720p.mkv` und kann technische Zusätze wie `720p` oder `WEB-DL` entfernen.
-- Zeigt eine einfache Drei-Spalten-Vorschau: Originaldatei mit Ergebnis, eigener Titel und optionale TMDb-Suche. Die Vorschau schützt vor Überschreiben und löst Namenskonflikte einzeln oder für alle mit eindeutigen Nummern.
+- Bietet ein einziges Feld **Eigener Titel** für den gesamten aktuellen Ordner. Ein Titel wie `Sons of Anarchy` wird mit einem Klick auf alle Video-Dateien angewendet; Staffel, Folge, Jahr und Dateiendung bleiben erhalten.
+- Die Vorschau zeigt Originaldatei und Ergebnis, schützt vor Überschreiben und löst Namenskonflikte einzeln oder für alle mit eindeutigen Nummern.
 - Benennt über temporäre Namen um und kann die letzte Aktion rückgängig machen.
-- Titel-Abkürzungen lassen sich ohne Online-Dienst einmalig zuordnen, etwa `soa` → `Sons of Anarchy`; die App speichert und nutzt sie für alle passenden Folgen.
-- Ein selbst eingetragener oder bei TMDb bestätigter Titel ersetzt nur den Titelteil; Staffel/Folge, Jahr und Dateiendung bleiben erhalten. Der Titel gilt für alle angehakten Dateien und wird für künftig passende Namen gespeichert.
-- Dateien, die nur aus Staffel und Folge bestehen, etwa `S08E01.avi`, können in der aktuellen Auswahl zu `Dragonball S08E01.avi` ergänzt werden.
-- Optional: TMDb-Titelsuche mit eigenem API-Schlüssel aus dem System-Schlüsselspeicher. Bekannte Präfixe werden ignoriert; bei keinem Treffer probiert die Suche zusätzlich den Namen ohne unbekanntes erstes Präfixwort.
+- Der gleiche Ablauf gilt für TMDb: einmal für den Ordner suchen, Treffer anklicken und sofort alle Dateien im Ordner vorbereiten. Bei Dateinamen ohne erkennbaren Titel kann ein eigener TMDb-Suchbegriff eingegeben werden.
+- Dateien, die nur aus Staffel und Folge bestehen, etwa `S08E01.avi`, werden dadurch ebenfalls zu `Dragonball S08E01.avi`.
+- Optional: TMDb-Titelsuche mit eigenem API-Schlüssel **oder API Read Access Token** aus dem System-Schlüsselspeicher. Bekannte Präfixe werden ignoriert; bei keinem Treffer probiert die Suche zusätzlich den Namen ohne unbekanntes erstes Präfixwort.
 - Prüft beim Start automatisch auf neue Versionen. Bei einem Treffer zeigt die App das Update an, lädt es nach Bestätigung signiert herunter und startet danach neu. Eine manuelle Prüfung bestätigt sichtbar, wenn keine neuere veröffentlichte Version verfügbar ist.
 
 ### Lokal starten
@@ -70,12 +70,12 @@ Ready-to-use installers for every released version are available under [Releases
 - Saves confirmed rules locally and applies only confirmed removal rules.
 - Formats names such as `tvkids.danny.phantom.s01e15.mkv` as `Danny Phantom S01E15.mkv`.
 - Handles dashes such as `tvr-soa-s01e01-720p.mkv` and can remove technical tags such as `720p` or `WEB-DL`.
-- Shows a simple three-column preview: original file with result, your title, and optional TMDb lookup. The preview prevents overwrites and resolves name conflicts individually or for all files with unique numbered names.
+- Provides one **Your title** field for the entire current folder. A title such as `Sons of Anarchy` is applied to every video file with one click; season, episode, year, and file extension are preserved.
+- The preview shows original file and result, prevents overwrites, and resolves name conflicts individually or for all files with unique numbered names.
 - Uses temporary names for safe renaming and can undo the latest operation.
-- Lets you map title abbreviations once without an online service, for example `soa` → `Sons of Anarchy`; the app saves and uses the mapping for every matching episode.
-- A title entered by you or confirmed through TMDb replaces only the title part; season/episode, year, and file extension remain intact. The title applies to all checked files and is saved for future matching file names.
-- Files containing only season and episode information, such as `S08E01.avi`, can receive a title in the current selection, for example `Dragonball S08E01.avi`.
-- Optional TMDb title lookup with your own API key stored in the system credential store. Known prefixes are ignored; when no match is found, lookup also tries the title without an unknown leading prefix word.
+- The same flow works with TMDb: search once for the folder, click a result, and instantly prepare every file in the folder. For filenames without a recognizable title, enter your own TMDb search term.
+- Files containing only season and episode information, such as `S08E01.avi`, can therefore also receive a title, for example `Dragonball S08E01.avi`.
+- Optional TMDb title lookup with your own API key **or API Read Access Token** stored in the system credential store. Known prefixes are ignored; when no match is found, lookup also tries the title without an unknown leading prefix word.
 - Automatically checks for new versions at startup. When one is found, the app displays it, securely downloads the signed update after confirmation, and then restarts. A manual check visibly confirms when no newer published version is available.
 
 ### Run locally

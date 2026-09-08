@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { aliasKeyForStem, createProposals, findPrefixCandidates, normalisePrefix, titleLookupQueries } from "./lib/rename";
+import { createProposals, findPrefixCandidates, normalisePrefix, titleLookupQueries } from "./lib/rename";
 import type {
   BatchRecord,
   PrefixRule,
@@ -11,7 +11,6 @@ import type {
   RenameFailure,
   RenameProposal,
   ScanResult,
-  TitleAlias,
   TmdbCandidate,
   UndoResult,
   VideoFile,
@@ -36,17 +35,7 @@ const copy = {
     add: "Hinzufügen",
     technical: "Technische Zusätze entfernen",
     technicalHint: "Entfernt z. B. 720p, WEB-DL, x264 und DTS aus dem vorgeschlagenen Namen.",
-    titleAliases: "Titel-Abkürzungen",
-    titleAliasesHint: "Einmal zuordnen – die App ersetzt die Abkürzung in allen passenden Dateien.",
-    abbreviation: "Abkürzung, z. B. SOA",
-    fullTitle: "Vollständiger Titel, z. B. Sons of Anarchy",
     applyAll: "Für alle anwenden",
-    removeAlias: "Zuordnung löschen",
-    episodeTitle: "Titel für Folgen ohne Titel",
-    episodeTitleHint: "Für Dateien wie S08E01. Der Titel wird nur vor Folgen ohne vorhandenen Serien- oder Filmtitel gesetzt.",
-    episodeTitlePlaceholder: "z. B. Dragonball",
-    applyEpisodeTitle: "Titel hinzufügen",
-    clearEpisodeTitle: "Zurücksetzen",
     preview: "Vorschau",
     selected: "ausgewählt",
     apply: "Ausgewählte Dateien umbenennen",
@@ -63,12 +52,16 @@ const copy = {
     chooseTitle: "Titel übernehmen",
     ownTitle: "Eigener Titel",
     ownTitlePlaceholder: "z. B. Sons of Anarchy",
-    applySelectedTitle: "Für angehakte übernehmen",
-    selectFilesFirst: "Wähle mindestens eine Datei aus.",
-    titleApplied: "Titel für die Auswahl übernommen.",
+    ownTitleHint: "Gilt für alle Video-Dateien im aktuellen Ordner. Staffel, Folge, Jahr und Dateiendung bleiben erhalten.",
+    applyFolderTitle: "Auf alle Dateien im Ordner anwenden",
+    titleApplied: "Titel für alle Dateien im Ordner übernommen.",
+    tmdbSearch: "Auf TMDb suchen",
+    tmdbSearchHint: "Suche einmal für den aktuellen Ordner und übernimm einen Treffer für alle Dateien.",
+    tmdbQueryPlaceholder: "TMDb-Suchbegriff, z. B. Dragonball",
+    tmdbQueryNeeded: "Gib einen TMDb-Suchbegriff ein oder wähle einen Ordner mit einem erkennbaren Dateinamen.",
+    tmdbKeyHint: "Der Schlüssel ist gespeichert. Falls die Suche scheitert, prüfe bitte, ob es ein TMDb API Key oder ein API Read Access Token ist.",
     file: "Datei",
     finalName: "Ergebnis",
-    tmdbColumn: "TMDb",
     empty: "Wähle einen Ordner und starte den Scan.",
     noVideos: "Keine unterstützten Videodateien gefunden.",
     original: "Original",
@@ -112,17 +105,7 @@ const copy = {
     add: "Add",
     technical: "Remove technical tags",
     technicalHint: "Removes tags such as 720p, WEB-DL, x264 and DTS from the proposed name.",
-    titleAliases: "Title abbreviations",
-    titleAliasesHint: "Map it once – the app replaces the abbreviation in every matching file.",
-    abbreviation: "Abbreviation, e.g. SOA",
-    fullTitle: "Full title, e.g. Sons of Anarchy",
     applyAll: "Apply to all",
-    removeAlias: "Delete mapping",
-    episodeTitle: "Title for titleless episodes",
-    episodeTitleHint: "For files such as S08E01. The title is added only before episodes that have no existing series or movie title.",
-    episodeTitlePlaceholder: "e.g. Dragonball",
-    applyEpisodeTitle: "Add title",
-    clearEpisodeTitle: "Reset",
     preview: "Preview",
     selected: "selected",
     apply: "Rename selected files",
@@ -139,12 +122,16 @@ const copy = {
     chooseTitle: "Use title",
     ownTitle: "Your title",
     ownTitlePlaceholder: "e.g. Sons of Anarchy",
-    applySelectedTitle: "Apply to selected",
-    selectFilesFirst: "Select at least one file.",
-    titleApplied: "Title applied to the selection.",
+    ownTitleHint: "Applies to every video file in the current folder. Season, episode, year, and file extension are preserved.",
+    applyFolderTitle: "Apply to all files in folder",
+    titleApplied: "Title applied to all files in the folder.",
+    tmdbSearch: "Search TMDb",
+    tmdbSearchHint: "Search once for the current folder and apply a selected result to every file.",
+    tmdbQueryPlaceholder: "TMDb search, e.g. Dragonball",
+    tmdbQueryNeeded: "Enter a TMDb search term or choose a folder with a recognizable file name.",
+    tmdbKeyHint: "Your key is saved. If lookup fails, check whether it is a TMDb API key or API Read Access Token.",
     file: "File",
     finalName: "Result",
-    tmdbColumn: "TMDb",
     empty: "Choose a folder and start a scan.",
     noVideos: "No supported video files were found.",
     original: "Original",
@@ -180,14 +167,12 @@ export default function App() {
   const [includeSubfolders, setIncludeSubfolders] = useState(true);
   const [files, setFiles] = useState<VideoFile[]>([]);
   const [rules, setRules] = useState<PrefixRule[]>([]);
-  const [aliases, setAliases] = useState<TitleAlias[]>([]);
   const [removeTechnical, setRemoveTechnical] = useState(true);
   const [proposals, setProposals] = useState<RenameProposal[]>([]);
   const [manualPrefix, setManualPrefix] = useState("");
-  const [manualAlias, setManualAlias] = useState("");
-  const [manualTitle, setManualTitle] = useState("");
-  const [titleInputs, setTitleInputs] = useState<Record<string, string>>({});
-  const [titleOverrides, setTitleOverrides] = useState<Record<string, string>>({});
+  const [folderTitleInput, setFolderTitleInput] = useState("");
+  const [folderTitle, setFolderTitle] = useState("");
+  const [tmdbQuery, setTmdbQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -195,7 +180,7 @@ export default function App() {
   const [conflictName, setConflictName] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [hasApiKey, setHasApiKey] = useState(false);
-  const [lookupProposal, setLookupProposal] = useState<RenameProposal | null>(null);
+  const [lookupOpen, setLookupOpen] = useState(false);
   const [lookupResults, setLookupResults] = useState<TmdbCandidate[]>([]);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lastBatch, setLastBatch] = useState<BatchRecord | null>(null);
@@ -225,33 +210,36 @@ export default function App() {
   const refreshPreview = useCallback((
     nextRules = rules,
     nextFiles = files,
-    nextAliases = aliases,
     nextRemoveTechnical = removeTechnical,
-    nextTitleOverrides = titleOverrides,
+    nextFolderTitle = folderTitle,
     preserveSelection = false,
+    selectAll = false,
   ) => {
-    const nextProposals = createProposals(nextFiles, nextRules, nextAliases, {
+    const titleOverrides = nextFolderTitle.trim()
+      ? Object.fromEntries(nextFiles.map((file) => [file.id, nextFolderTitle.trim()]))
+      : {};
+    const nextProposals = createProposals(nextFiles, nextRules, [], {
       removeTechnical: nextRemoveTechnical,
-      titleOverrides: nextTitleOverrides,
+      titleOverrides,
     });
-    setProposals((current) => preserveSelection
-      ? nextProposals.map((proposal) => {
-        const previous = current.find((item) => item.id === proposal.id);
-        return previous ? { ...proposal, selected: previous.selected } : proposal;
-      })
-      : nextProposals);
-  }, [aliases, files, removeTechnical, rules, titleOverrides]);
+    setProposals((current) => selectAll
+      ? nextProposals.map((proposal) => ({ ...proposal, selected: true }))
+      : preserveSelection
+        ? nextProposals.map((proposal) => {
+          const previous = current.find((item) => item.id === proposal.id);
+          return previous ? { ...proposal, selected: previous.selected } : proposal;
+        })
+        : nextProposals);
+  }, [files, folderTitle, removeTechnical, rules]);
 
   const loadRules = useCallback(async () => {
     try {
-      const [savedRules, savedAliases, savedHasApiKey, history] = await Promise.all([
+      const [savedRules, savedHasApiKey, history] = await Promise.all([
         invoke<PrefixRule[]>("get_prefix_rules"),
-        invoke<TitleAlias[]>("get_title_aliases"),
         invoke<boolean>("has_tmdb_key"),
         invoke<BatchRecord[]>("get_history"),
       ]);
       setRules(savedRules);
-      setAliases(savedAliases);
       setHasApiKey(savedHasApiKey);
       setLastBatch(history.find((batch) => batch.items.some((item) => !item.undone)) ?? null);
     } catch (caught) {
@@ -318,8 +306,9 @@ export default function App() {
       setFolder(selected);
       setFiles([]);
       setProposals([]);
-      setTitleInputs({});
-      setTitleOverrides({});
+      setFolderTitleInput("");
+      setFolderTitle("");
+      setTmdbQuery("");
       setMessage("");
       setError("");
     }
@@ -334,9 +323,10 @@ export default function App() {
       const result = await invoke<ScanResult>("scan_folder", { path: folder, includeSubfolders });
       setFolder(result.root);
       setFiles(result.files);
-      setTitleInputs({});
-      setTitleOverrides({});
-      refreshPreview(rules, result.files, aliases, removeTechnical, {});
+      setFolderTitleInput("");
+      setFolderTitle("");
+      setTmdbQuery("");
+      refreshPreview(rules, result.files, removeTechnical, "");
     } catch (caught) {
       setError(String(caught));
     } finally {
@@ -346,20 +336,9 @@ export default function App() {
 
   const saveRules = async (nextRules: PrefixRule[]) => {
     setRules(nextRules);
-    refreshPreview(nextRules, files, aliases, removeTechnical, titleOverrides, true);
+    refreshPreview(nextRules, files, removeTechnical, folderTitle, true);
     try {
       await invoke("save_prefix_rules", { rules: nextRules });
-      setMessage(t.saved);
-    } catch (caught) {
-      setError(String(caught));
-    }
-  };
-
-  const saveAliases = async (nextAliases: TitleAlias[], nextTitleOverrides = titleOverrides, preserveSelection = true) => {
-    setAliases(nextAliases);
-    refreshPreview(rules, files, nextAliases, removeTechnical, nextTitleOverrides, preserveSelection);
-    try {
-      await invoke("save_title_aliases", { aliases: nextAliases });
       setMessage(t.saved);
     } catch (caught) {
       setError(String(caught));
@@ -373,19 +352,9 @@ export default function App() {
     setManualPrefix("");
   };
 
-  const addAlias = () => {
-    const value = manualAlias.trim();
-    const title = manualTitle.trim();
-    if (!value || !title) return;
-    const nextAliases = [...aliases.filter((alias) => normalisePrefix(alias.value) !== normalisePrefix(value)), { value, title }];
-    void saveAliases(nextAliases);
-    setManualAlias("");
-    setManualTitle("");
-  };
-
   const changeTechnicalCleanup = (enabled: boolean) => {
     setRemoveTechnical(enabled);
-    refreshPreview(rules, files, aliases, enabled, titleOverrides, true);
+    refreshPreview(rules, files, enabled, folderTitle, true);
   };
 
   const setProposal = (id: string, patch: Partial<RenameProposal>) => {
@@ -396,41 +365,16 @@ export default function App() {
     setProposals((current) => current.map((proposal) => ({ ...proposal, selected })));
   };
 
-  const applyTitleToSelected = async (title: string): Promise<boolean> => {
+  const applyTitleToFolder = (title: string): boolean => {
     const cleanTitle = title.trim();
-    const selected = proposals.filter((proposal) => proposal.selected);
-    if (!cleanTitle || selected.length === 0) {
-      if (selected.length === 0) setError(t.selectFilesFirst);
+    if (!cleanTitle || files.length === 0) {
       return false;
     }
-
-    const selectedIds = new Set(selected.map((proposal) => proposal.id));
-    const nextTitleOverrides = {
-      ...titleOverrides,
-      ...Object.fromEntries(selected.map((proposal) => [proposal.id, cleanTitle])),
-    };
-    const aliasValues = [...new Set(selected
-      .map((proposal) => files.find((file) => file.id === proposal.id))
-      .filter((file): file is VideoFile => Boolean(file))
-      .map((file) => aliasKeyForStem(file.stem, rules, { removeTechnical }))
-      .filter(Boolean))];
-    const nextAliases = [
-      ...aliases.filter((alias) => !aliasValues.some((value) => normalisePrefix(alias.value) === normalisePrefix(value))),
-      ...aliasValues.map((value) => ({ value, title: cleanTitle })),
-    ];
-
     setError("");
-    setTitleOverrides(nextTitleOverrides);
-    setTitleInputs((current) => ({
-      ...current,
-      ...Object.fromEntries(proposals.filter((proposal) => selectedIds.has(proposal.id)).map((proposal) => [proposal.id, cleanTitle])),
-    }));
-    if (aliasValues.length > 0) {
-      await saveAliases(nextAliases, nextTitleOverrides, true);
-    } else {
-      refreshPreview(rules, files, aliases, removeTechnical, nextTitleOverrides, true);
-      setMessage(t.titleApplied);
-    }
+    setFolderTitleInput(cleanTitle);
+    setFolderTitle(cleanTitle);
+    refreshPreview(rules, files, removeTechnical, cleanTitle, false, true);
+    setMessage(t.titleApplied);
     return true;
   };
 
@@ -535,31 +479,38 @@ export default function App() {
     }
   };
 
-  const searchTmdb = async (proposal: RenameProposal) => {
-    const file = files.find((item) => item.id === proposal.id);
+  const searchTmdb = async () => {
+    const file = files[0];
     if (!file) return;
-    setLookupProposal(proposal);
+    setLookupOpen(true);
     setLookupResults([]);
     setLookupLoading(true);
     setError("");
     try {
       let results: TmdbCandidate[] = [];
-      for (const query of titleLookupQueries(file.stem, rules, { removeTechnical })) {
+      const queries = tmdbQuery.trim()
+        ? [tmdbQuery.trim()]
+        : titleLookupQueries(file.stem, rules, { removeTechnical });
+      if (queries.length === 0) {
+        setError(t.tmdbQueryNeeded);
+        setLookupOpen(false);
+        return;
+      }
+      for (const query of queries) {
         results = await invoke<TmdbCandidate[]>("search_tmdb", { query, language: locale === "de" ? "de-DE" : "en-US" });
         if (results.length > 0) break;
       }
       setLookupResults(results);
     } catch (caught) {
       setError(String(caught));
-      setLookupProposal(null);
+      setLookupOpen(false);
     } finally {
       setLookupLoading(false);
     }
   };
 
-  const useTmdbTitle = async (candidate: TmdbCandidate) => {
-    if (!lookupProposal) return;
-    if (await applyTitleToSelected(candidate.title)) setLookupProposal(null);
+  const useTmdbTitle = (candidate: TmdbCandidate) => {
+    if (applyTitleToFolder(candidate.title)) setLookupOpen(false);
   };
 
   return (
@@ -649,24 +600,22 @@ export default function App() {
             </label>
           </section>
 
-          <details className="card settings-card">
-            <summary>{t.titleAliases}</summary>
-            <p>{t.titleAliasesHint}</p>
-            <section className="title-aliases">
-              <form onSubmit={(event) => { event.preventDefault(); addAlias(); }}>
-                <input value={manualAlias} onChange={(event) => setManualAlias(event.target.value)} placeholder={t.abbreviation} />
-                <input value={manualTitle} onChange={(event) => setManualTitle(event.target.value)} placeholder={t.fullTitle} />
-                <button disabled={!manualAlias.trim() || !manualTitle.trim()}>{t.applyAll}</button>
-              </form>
-              {aliases.length > 0 && <div className="alias-list">
-                {aliases.map((alias) => <div key={normalisePrefix(alias.value)}><span><strong>{alias.value}</strong> → {alias.title}</span><button className="text-button" onClick={() => void saveAliases(aliases.filter((item) => normalisePrefix(item.value) !== normalisePrefix(alias.value)))}>{t.removeAlias}</button></div>)}
-              </div>}
-            </section>
-          </details>
+          <section className="card folder-title-card">
+            <div>
+              <h2>{t.ownTitle}</h2>
+              <p>{t.ownTitleHint}</p>
+            </div>
+            <form className="folder-title-form" onSubmit={(event) => { event.preventDefault(); applyTitleToFolder(folderTitleInput); }}>
+              <input value={folderTitleInput} onChange={(event) => setFolderTitleInput(event.target.value)} placeholder={t.ownTitlePlaceholder} />
+              <button className="primary" disabled={!folderTitleInput.trim()}>{t.applyFolderTitle}</button>
+            </form>
+            {hasApiKey && <div className="folder-tmdb"><span>{t.tmdbSearchHint}</span><input value={tmdbQuery} onChange={(event) => setTmdbQuery(event.target.value)} placeholder={t.tmdbQueryPlaceholder} /><button className="secondary" onClick={() => void searchTmdb()}>{t.tmdbSearch}</button></div>}
+          </section>
 
           <details className="card settings-card">
             <summary>{t.settings}</summary>
             <p>{t.settingsHint}</p>
+            {hasApiKey && <p className="tmdb-key-hint">{t.tmdbKeyHint}</p>}
             <div className="settings-row">
               <input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={t.apiKey} autoComplete="off" />
               <button onClick={() => void saveKey()} disabled={!apiKey.trim()}>{t.saveKey}</button>
@@ -684,14 +633,12 @@ export default function App() {
             </div>
             <div className="table-wrap">
               <table>
-                <thead><tr><th><input type="checkbox" checked={allFilesSelected} onChange={(event) => setAllProposalsSelected(event.target.checked)} aria-label={t.applyAll} /></th><th>{t.file}</th><th>{t.ownTitle}</th><th>{t.tmdbColumn}</th></tr></thead>
+                <thead><tr><th><input type="checkbox" checked={allFilesSelected} onChange={(event) => setAllProposalsSelected(event.target.checked)} aria-label={t.applyAll} /></th><th>{t.file}</th></tr></thead>
                 <tbody>
                   {proposals.map((proposal) => (
                     <tr key={proposal.id} className={proposal.selected ? "" : "dim"}>
                       <td><input type="checkbox" checked={proposal.selected} onChange={(event) => setProposal(proposal.id, { selected: event.target.checked })} /></td>
                       <td><div className="file-cell"><strong>{proposal.sourceName}</strong><small>{t.finalName}: {proposal.targetName}</small></div></td>
-                      <td><div className="title-editor"><input value={titleInputs[proposal.id] ?? ""} onChange={(event) => setTitleInputs((current) => ({ ...current, [proposal.id]: event.target.value }))} placeholder={t.ownTitlePlaceholder} /><button className="tiny-button" disabled={!(titleInputs[proposal.id] ?? "").trim()} onClick={() => void applyTitleToSelected(titleInputs[proposal.id] ?? "")}>{t.applySelectedTitle}</button></div></td>
-                      <td>{hasApiKey && <button className="tiny-button" onClick={() => void searchTmdb(proposal)}>{t.tmdb}</button>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -722,7 +669,7 @@ export default function App() {
         </div>
       )}
 
-      {lookupProposal && (
+      {lookupOpen && (
         <div className="modal-backdrop" role="presentation">
           <section className="modal lookup-modal" role="dialog" aria-modal="true">
             <h2>{t.tmdb}</h2>
@@ -734,7 +681,7 @@ export default function App() {
                 <button onClick={() => void useTmdbTitle(candidate)}>{t.chooseTitle}</button>
               </article>
             ))}
-            <button className="text-button" onClick={() => setLookupProposal(null)}>{t.cancel}</button>
+            <button className="text-button" onClick={() => setLookupOpen(false)}>{t.cancel}</button>
           </section>
         </div>
       )}
