@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createProposals, findPrefixCandidates, normalisePrefix, titleLookupQueries } from "./lib/rename";
+import { createProposals, findPrefixCandidates, folderTitleLookupQueries, normalisePrefix } from "./lib/rename";
 import type {
   BatchRecord,
   PrefixRule,
@@ -56,8 +56,8 @@ const copy = {
     applyFolderTitle: "Auf alle Dateien im Ordner anwenden",
     titleApplied: "Titel für alle Dateien im Ordner übernommen.",
     tmdbSearch: "Auf TMDb suchen",
-    tmdbSearchHint: "Suche einmal für den aktuellen Ordner und übernimm einen Treffer für alle Dateien.",
-    tmdbQueryPlaceholder: "TMDb-Suchbegriff, z. B. Dragonball",
+    tmdbSearchHint: "Die App erkennt den gemeinsamen Titel aus den Dateien – bei reinen Folgen aus dem Ordnernamen – und übernimmt einen Treffer für alle Dateien.",
+    tmdbQueryPlaceholder: "Optional: eigener TMDb-Suchbegriff",
     tmdbQueryNeeded: "Gib einen TMDb-Suchbegriff ein oder wähle einen Ordner mit einem erkennbaren Dateinamen.",
     tmdbKeyHint: "Der Schlüssel ist gespeichert. Falls die Suche scheitert, prüfe bitte, ob es ein TMDb API Key oder ein API Read Access Token ist.",
     file: "Datei",
@@ -126,8 +126,8 @@ const copy = {
     applyFolderTitle: "Apply to all files in folder",
     titleApplied: "Title applied to all files in the folder.",
     tmdbSearch: "Search TMDb",
-    tmdbSearchHint: "Search once for the current folder and apply a selected result to every file.",
-    tmdbQueryPlaceholder: "TMDb search, e.g. Dragonball",
+    tmdbSearchHint: "The app detects the shared title from the files – or the folder name for episode-only files – and applies a selected result to every file.",
+    tmdbQueryPlaceholder: "Optional: custom TMDb search term",
     tmdbQueryNeeded: "Enter a TMDb search term or choose a folder with a recognizable file name.",
     tmdbKeyHint: "Your key is saved. If lookup fails, check whether it is a TMDb API key or API Read Access Token.",
     file: "File",
@@ -179,6 +179,7 @@ export default function App() {
   const [conflicts, setConflicts] = useState<RenameFailure[]>([]);
   const [conflictName, setConflictName] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [sessionApiKey, setSessionApiKey] = useState("");
   const [hasApiKey, setHasApiKey] = useState(false);
   const [lookupOpen, setLookupOpen] = useState(false);
   const [lookupResults, setLookupResults] = useState<TmdbCandidate[]>([]);
@@ -470,7 +471,9 @@ export default function App() {
   const saveKey = async () => {
     if (!apiKey.trim()) return;
     try {
-      await invoke("set_tmdb_key", { key: apiKey.trim() });
+      const key = apiKey.trim();
+      await invoke("set_tmdb_key", { key });
+      setSessionApiKey(key);
       setApiKey("");
       setHasApiKey(true);
       setMessage(t.saved);
@@ -490,14 +493,18 @@ export default function App() {
       let results: TmdbCandidate[] = [];
       const queries = tmdbQuery.trim()
         ? [tmdbQuery.trim()]
-        : titleLookupQueries(file.stem, rules, { removeTechnical });
+        : folderTitleLookupQueries(files, folder, rules, { removeTechnical });
       if (queries.length === 0) {
         setError(t.tmdbQueryNeeded);
         setLookupOpen(false);
         return;
       }
       for (const query of queries) {
-        results = await invoke<TmdbCandidate[]>("search_tmdb", { query, language: locale === "de" ? "de-DE" : "en-US" });
+        results = await invoke<TmdbCandidate[]>("search_tmdb", {
+          query,
+          language: locale === "de" ? "de-DE" : "en-US",
+          sessionKey: sessionApiKey || null,
+        });
         if (results.length > 0) break;
       }
       setLookupResults(results);

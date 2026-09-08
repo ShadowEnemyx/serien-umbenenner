@@ -741,14 +741,29 @@ pub fn delete_tmdb_key() -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn search_tmdb(query: String, language: String) -> Result<Vec<TmdbCandidate>, String> {
+pub async fn search_tmdb(
+    query: String,
+    language: String,
+    session_key: Option<String>,
+) -> Result<Vec<TmdbCandidate>, String> {
     let query = query.trim();
     if query.len() < 2 {
         return Ok(vec![]);
     }
-    let key = tmdb_entry()?
-        .get_password()
-        .map_err(|_| "Bitte speichere zuerst einen TMDb API-Schlüssel.".to_string())?;
+    let key = match session_key.filter(|key| !key.trim().is_empty()) {
+        Some(key) => key,
+        None => match tmdb_entry()?.get_password() {
+            Ok(key) if !key.trim().is_empty() => key,
+            Ok(_) | Err(keyring::Error::NoEntry) => {
+                return Err("Bitte speichere zuerst einen TMDb API-Schlüssel.".to_string())
+            }
+            Err(error) => {
+                return Err(format!(
+                    "TMDb-Schlüssel konnte nicht aus dem System-Schlüsselspeicher gelesen werden: {error}"
+                ))
+            }
+        },
+    };
     let uses_read_access_token = key.starts_with("eyJ") && key.matches('.').count() == 2;
     let mut parameters = vec![
         ("query", query.to_owned()),
