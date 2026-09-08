@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { configDefaults, defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
@@ -11,5 +11,8 @@ export default defineConfig({
   envPrefix: ["VITE_", "TAURI_"],
   build: {
     target: ["es2022", "chrome105", "safari13"],
+  },
+  test: {
+    exclude: [...configDefaults.exclude, "**/._*"],
   },
 });

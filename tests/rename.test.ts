@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aliasKeyForStem, createProposals, findPrefixCandidates, readableStem, titleLookupQueries } from "../src/lib/rename";
+import { aliasKeyForStem, createProposals, findPrefixCandidates, folderTitleLookupQueries, readableStem, titleLookupQueries } from "../src/lib/rename";
 import type { VideoFile } from "../src/lib/types";
 
 const file = (name: string): VideoFile => {
@@ -155,5 +155,23 @@ describe("TMDb lookup queries", () => {
   it("falls back to a query without an unknown leading prefix", () => {
     expect(titleLookupQueries("tvr-soa-s01e01-720p", [], { removeTechnical: true }))
       .toEqual(["tvr soa", "soa"]);
+  });
+
+  it("uses the common filename query for a whole folder", () => {
+    expect(folderTitleLookupQueries(
+      [file("tvr-soa-s01e01.mkv"), file("tvr-soa-s01e02.mkv"), file("other-title-s01e01.mkv")],
+      "/media/Shows",
+      [],
+      { removeTechnical: true },
+    )).toEqual(["tvr soa", "soa"]);
+  });
+
+  it("uses the folder name when every filename only contains an episode number", () => {
+    expect(folderTitleLookupQueries(
+      [file("S08E01.avi"), file("S08E02.avi")],
+      "/media/Dragonball Staffel 8",
+      [],
+      { removeTechnical: true },
+    )).toEqual(["dragonball"]);
   });
 });

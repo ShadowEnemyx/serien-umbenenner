@@ -23,7 +23,7 @@ Fertige Installationsdateien stehen bei jeder veröffentlichten Version unter [R
 - Bietet ein einziges Feld **Eigener Titel** für den gesamten aktuellen Ordner. Ein Titel wie `Sons of Anarchy` wird mit einem Klick auf alle Video-Dateien angewendet; Staffel, Folge, Jahr und Dateiendung bleiben erhalten.
 - Die Vorschau zeigt Originaldatei und Ergebnis, schützt vor Überschreiben und löst Namenskonflikte einzeln oder für alle mit eindeutigen Nummern.
 - Benennt über temporäre Namen um und kann die letzte Aktion rückgängig machen.
-- Der gleiche Ablauf gilt für TMDb: einmal für den Ordner suchen, Treffer anklicken und sofort alle Dateien im Ordner vorbereiten. Bei Dateinamen ohne erkennbaren Titel kann ein eigener TMDb-Suchbegriff eingegeben werden.
+- Der gleiche Ablauf gilt für TMDb: Die App erkennt den gemeinsamen Namen aus allen Dateien im Ordner und sucht damit automatisch. Bei Dateien mit ausschließlich Staffel/Folge, etwa `S08E01`, dient der Ordnername als Suchbegriff. Ein eigener TMDb-Suchbegriff ist nur optional.
 - Dateien, die nur aus Staffel und Folge bestehen, etwa `S08E01.avi`, werden dadurch ebenfalls zu `Dragonball S08E01.avi`.
 - Optional: TMDb-Titelsuche mit eigenem API-Schlüssel **oder API Read Access Token** aus dem System-Schlüsselspeicher. Bekannte Präfixe werden ignoriert; bei keinem Treffer probiert die Suche zusätzlich den Namen ohne unbekanntes erstes Präfixwort.
 - Prüft beim Start automatisch auf neue Versionen. Bei einem Treffer zeigt die App das Update an, lädt es nach Bestätigung signiert herunter und startet danach neu. Eine manuelle Prüfung bestätigt sichtbar, wenn keine neuere veröffentlichte Version verfügbar ist.
@@ -73,7 +73,7 @@ Ready-to-use installers for every released version are available under [Releases
 - Provides one **Your title** field for the entire current folder. A title such as `Sons of Anarchy` is applied to every video file with one click; season, episode, year, and file extension are preserved.
 - The preview shows original file and result, prevents overwrites, and resolves name conflicts individually or for all files with unique numbered names.
 - Uses temporary names for safe renaming and can undo the latest operation.
-- The same flow works with TMDb: search once for the folder, click a result, and instantly prepare every file in the folder. For filenames without a recognizable title, enter your own TMDb search term.
+- The same flow works with TMDb: the app automatically detects the shared name from all files in the folder. For files containing only season/episode information, such as `S08E01`, it uses the folder name as the search term. A custom TMDb search term is optional.
 - Files containing only season and episode information, such as `S08E01.avi`, can therefore also receive a title, for example `Dragonball S08E01.avi`.
 - Optional TMDb title lookup with your own API key **or API Read Access Token** stored in the system credential store. Known prefixes are ignored; when no match is found, lookup also tries the title without an unknown leading prefix word.
 - Automatically checks for new versions at startup. When one is found, the app displays it, securely downloads the signed update after confirmation, and then restarts. A manual check visibly confirms when no newer published version is available.

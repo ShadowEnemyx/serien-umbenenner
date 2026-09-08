@@ -198,3 +198,42 @@ export function titleLookupQueries(stem: string, rules: PrefixRule[], options: R
     .join(" ");
   return [...new Set([primary, fallback].filter(Boolean))];
 }
+
+function folderStemForLookup(folderPath: string): string {
+  const folderName = folderPath.split(/[\\/]+/u).filter(Boolean).at(-1) ?? "";
+  const tokens = tokensFor(folderName);
+  const boundary = tokens.findIndex((token, index) => (
+    isEpisodeToken(token)
+    || /^s\d{1,2}$/iu.test(token)
+    || /^(?:staffel|season)$/iu.test(token)
+    || (index > 0 && /^(?:staffel|season)\d{1,2}$/iu.test(token))
+  ));
+  return tokens.slice(0, boundary === -1 ? tokens.length : boundary).join(" ");
+}
+
+/**
+ * Finds the most common safe TMDb query among the video's filenames. If files
+ * only contain episode numbers, the containing folder name is used instead.
+ */
+export function folderTitleLookupQueries(
+  files: VideoFile[],
+  folderPath: string,
+  rules: PrefixRule[],
+  options: RenameOptions,
+): string[] {
+  const candidates = new Map<string, { queries: string[]; count: number }>();
+  for (const file of files) {
+    const queries = titleLookupQueries(file.stem, rules, options);
+    if (queries.length === 0) continue;
+    const key = queries.join("\u0000");
+    const entry = candidates.get(key);
+    if (entry) entry.count += 1;
+    else candidates.set(key, { queries, count: 1 });
+  }
+
+  const bestFileCandidate = [...candidates.values()]
+    .sort((left, right) => right.count - left.count || left.queries.join(" ").localeCompare(right.queries.join(" ")))[0];
+  if (bestFileCandidate) return bestFileCandidate.queries;
+
+  return titleLookupQueries(folderStemForLookup(folderPath), rules, options);
+}
