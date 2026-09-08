@@ -749,21 +749,43 @@ pub async fn search_tmdb(query: String, language: String) -> Result<Vec<TmdbCand
     let key = tmdb_entry()?
         .get_password()
         .map_err(|_| "Bitte speichere zuerst einen TMDb API-Schlüssel.".to_string())?;
-    let url = format!(
-        "https://api.themoviedb.org/3/search/multi?api_key={}&query={}&language={}&include_adult=false",
-        urlencoding::encode(&key),
-        urlencoding::encode(query),
-        urlencoding::encode(&language)
-    );
-    let response = Client::new()
-        .get(url)
+    let uses_read_access_token = key.starts_with("eyJ") && key.matches('.').count() == 2;
+    let mut parameters = vec![
+        ("query", query.to_owned()),
+        ("language", language),
+        ("include_adult", "false".to_string()),
+    ];
+    if !uses_read_access_token {
+        parameters.push(("api_key", key.clone()));
+    }
+    let request = Client::new()
+        .get("https://api.themoviedb.org/3/search/multi")
+        .query(&parameters);
+    let request = if uses_read_access_token {
+        request.bearer_auth(&key)
+    } else {
+        request
+    };
+    let response = request
         .send()
         .await
-        .map_err(|error| format!("TMDb konnte nicht erreicht werden: {error}"))?
-        .error_for_status()
-        .map_err(|error| format!("TMDb hat die Anfrage abgelehnt: {error}"))?
-        .json::<TmdbResponse>()
+        .map_err(|error| format!("TMDb konnte nicht erreicht werden: {error}"))?;
+    let status = response.status();
+    let body = response
+        .text()
         .await
+        .map_err(|error| format!("TMDb-Antwort konnte nicht gelesen werden: {error}"))?;
+    if !status.is_success() {
+        let details = serde_json::from_str::<serde_json::Value>(&body)
+            .ok()
+            .and_then(|value| value.get("status_message")?.as_str().map(str::to_owned))
+            .unwrap_or_else(|| "Unbekannte Antwort von TMDb.".to_string());
+        return Err(format!(
+            "TMDb hat die Anfrage abgelehnt (HTTP {}): {details}. Prüfe deinen API-Schlüssel oder API Read Access Token.",
+            status.as_u16()
+        ));
+    }
+    let response = serde_json::from_str::<TmdbResponse>(&body)
         .map_err(|error| format!("TMDb-Antwort konnte nicht gelesen werden: {error}"))?;
 
     Ok(response

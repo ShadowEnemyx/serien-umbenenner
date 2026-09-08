@@ -110,16 +110,24 @@ describe("proposal and candidate creation", () => {
     ]);
   });
 
-  it("selects title-only episodes after a per-file title override", () => {
+  it("applies one folder title to every file while preserving each episode", () => {
     const proposals = createProposals(
-      [file("S08E01.avi"), file("S08E02.avi")],
+      [file("tvr-soa-s01e01-720p.mkv"), file("tvr-soa-s01e02-720p.mkv"), file("S08E01.avi")],
+      [{ value: "tvr", action: "remove" }],
       [],
-      [],
-      { removeTechnical: true, titleOverrides: { "S08E01.avi": "Dragonball" } },
+      {
+        removeTechnical: true,
+        titleOverrides: {
+          "tvr-soa-s01e01-720p.mkv": "Sons of Anarchy",
+          "tvr-soa-s01e02-720p.mkv": "Sons of Anarchy",
+          "S08E01.avi": "Sons of Anarchy",
+        },
+      },
     );
     expect(proposals).toMatchObject([
-      { targetName: "Dragonball S08E01.avi", selected: true },
-      { targetName: "S08E02.avi", selected: false },
+      { targetName: "Sons of Anarchy S01E01.mkv", selected: true },
+      { targetName: "Sons of Anarchy S01E02.mkv", selected: true },
+      { targetName: "Sons of Anarchy S08E01.avi", selected: true },
     ]);
   });
 
